@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="../static/style.css">
 <style>/* Navegação principal (Raio-X · Votos 2026 · 2022 × 2026) — comum ao Raio-X e ao painel.
    Computador: três botões grandes com ícone e explicação. Celular: barra fixa embaixo, estilo aplicativo. */
-.nav-sis { position: sticky; top: 0; z-index: 900; background: #ffffff; border-bottom: 1px solid #e2e6ec;
+.nav-sis { position: sticky; top: 0; z-index: 2000;   /* acima dos controles do mapa (Leaflet usa até 1000) */ background: #ffffff; border-bottom: 1px solid #e2e6ec;
   box-shadow: 0 4px 14px rgba(14, 34, 56, .06); }
 .nav-sis .ns-in { max-width: 1160px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 10px; justify-content: center; }
 .nav-sis .ns-item { flex: 1 1 0; max-width: 300px; display: flex; align-items: center; gap: 12px; padding: 10px 16px;
@@ -90,14 +90,30 @@ document.getElementById('troca-cand').addEventListener('change', e => {
 <nav class="nav-sis" id="visoes" aria-label="Seções"><div class="ns-in"><a class="ns-item" href="./"><span class="ns-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span><span class="ns-txt"><b>Raio-X</b><small>Resumo, mapa e destaques</small></span></a><button class="ns-item ativa" data-v="v-2026"><span class="ns-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="10" width="18" height="11" rx="2"/><path d="M8 10V4h8v6M10 7h4M7 15h10"/></svg></span><span class="ns-txt"><b>Votos 2026</b><small>Por cidade, escola e urna</small></span></button><button class="ns-item" data-v="v-comp"><span class="ns-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-4-4M20 16H7l4 4"/></svg></span><span class="ns-txt"><b>2022 × 2026</b><small>Onde cresceu e onde caiu</small></span></button></div></nav>
 
 <div class="conteudo">
-  <section class="filtros">
-    <label>Cidade<select id="f-municipio"><option value="">Toda a Bahia</option></select></label>
-    <label>Bairro<select id="f-bairro" disabled><option value="">Todos</option></select></label>
-    <label>Escola<select id="f-local" disabled><option value="">Todas</option></select></label>
-    <button id="limpar" class="link" hidden>Limpar filtro</button>
-    <button id="btn-imprimir" class="btn-imprimir" type="button" title="Gera um relatório do que está filtrado">
+  <section class="filtro-box" id="filtro-box" aria-labelledby="fb-titulo">
+    <div class="fb-topo">
+      <div>
+        <h2 id="fb-titulo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg> Filtrar votos</h2>
+        <p>Digite o nome de uma <b>cidade</b>, <b>bairro</b> ou <b>escola</b> — ou escolha passo a passo abaixo.</p>
+      </div>
+    </div>
+    <div class="fb-busca">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      <input id="f-busca" type="search" placeholder="Ex.: Tucano, Itinga, Escola Zélia…" autocomplete="off"
+        aria-label="Procurar cidade, bairro ou escola" aria-controls="f-sug" aria-expanded="false">
+      <div id="f-sug" class="fb-sug" role="listbox" hidden></div>
+    </div>
+    <div class="fb-passos">
+      <label><span class="fb-rot"><i>1</i> Cidade</span><select id="f-municipio"><option value="">Toda a Bahia</option></select></label>
+      <label><span class="fb-rot"><i>2</i> Bairro <small>(opcional)</small></span><select id="f-bairro" disabled><option value="">Todos os bairros</option></select></label>
+      <label><span class="fb-rot"><i>3</i> Escola</span><select id="f-local" disabled><option value="">Todas as escolas</option></select></label>
+    </div>
+    <div class="fb-rodape">
+      <div class="fb-ativos" id="f-ativos"></div>
+      <button id="btn-imprimir" class="btn-imprimir" type="button" title="Gera um relatório do que está filtrado">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/></svg>
       Imprimir / Salvar PDF</button>
+    </div>
   </section>
 
   <!-- ============ VOTOS 2026 ============ -->

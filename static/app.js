@@ -92,6 +92,7 @@ async function carregarResumo() {
     $('c-pct').textContent = pct(f.votos, f.validos);
   }
   $('c-pos-box').hidden = !!qs();
+  resultadoFiltro(f);
 }
 
 // ---------- ranking em barras ----------
@@ -178,29 +179,124 @@ const carregarTabela = tabela({
 });
 
 // ---------- filtros ----------
+// Três jeitos de filtrar, sempre sincronizados: busca única (cidade/bairro/escola), passos 1-2-3 e etiquetas removíveis.
+// Escola = "zona-local" (o número do local se repete entre zonas da mesma cidade).
 function preencher(sel, itens, rotulo, val = x => x, txt = x => x) {
   sel.innerHTML = `<option value="">${rotulo}</option>` + (itens || []).map(i => `<option value="${esc(val(i))}">${esc(titulo(txt(i)))}</option>`).join('');
   sel.disabled = !itens || !itens.length;
 }
+const nomeSel = id => { const s = $(id); return s.value && s.selectedIndex > 0 ? s.options[s.selectedIndex].text : ''; };
+
 async function atualizarOpcoes() {
   const o = await get('api/opcoes?' + qs());
   if ($('f-municipio').options.length <= 1)
     preencher($('f-municipio'), o.municipios, 'Toda a Bahia', x => x.id, x => x.nome);
-  preencher($('f-bairro'), o.bairros, 'Todos');
-  preencher($('f-local'), o.locais, 'Todas', x => x.id, x => x.nome);
+  $('f-municipio').value = filtros.municipio;
+  preencher($('f-bairro'), o.bairros, filtros.municipio ? 'Todos os bairros' : 'Escolha a cidade primeiro');
+  preencher($('f-local'), o.locais, filtros.municipio ? 'Todas as escolas' : 'Escolha a cidade primeiro', x => x.id, x => x.nome);
   $('f-bairro').value = filtros.bairro; $('f-local').value = filtros.local;
-  $('limpar').hidden = !qs();
+  desenharAtivos();
+}
+
+function desenharAtivos() {
+  const itens = [['municipio', nomeSel('f-municipio')], ['bairro', filtros.bairro ? titulo(filtros.bairro) : ''], ['local', nomeSel('f-local')]]
+    .filter(([k, n]) => filtros[k] && n);
+  $('f-ativos').innerHTML = itens.length
+    ? itens.map(([k, n]) => `<span class="fb-chip"><span>${esc(n)}</span><button type="button" data-k="${k}" aria-label="Remover ${esc(n)}">×</button></span>`).join('') +
+      `<button type="button" class="fb-limpar" id="limpar">Limpar tudo</button><div class="fb-res" id="f-res"></div>`
+    : `<span>Mostrando <b>toda a Bahia</b>.</span><div class="fb-res" id="f-res"></div>`;
+}
+// linha de resultado ("Mostrando 15 urnas · 2.487 votos"), preenchida pelo resumo
+function resultadoFiltro(f) {
+  const r = $('f-res'); if (!r) return;
+  r.innerHTML = qs() ? `Resultado: <b>${fmt(f.secoes)}</b> ${f.secoes === 1 ? 'urna' : 'urnas'} · <b>${fmt(f.votos)}</b> ${f.votos === 1 ? 'voto' : 'votos'} (${pct(f.votos, f.validos)} dos válidos)` : '';
+}
+
+async function aplicar(novos) {
+  Object.assign(filtros, { municipio: '', bairro: '', local: '' }, novos);
+  await atualizarOpcoes(); tudo();
 }
 const ordem = ['municipio', 'bairro', 'local'];
-ordem.forEach((k, i) => $('f-' + k).addEventListener('change', async e => {
-  filtros[k] = e.target.value;
-  ordem.slice(i + 1).forEach(x => filtros[x] = '');
-  await atualizarOpcoes(); tudo();
+ordem.forEach((k, i) => $('f-' + k).addEventListener('change', e => {
+  const novos = {}; ordem.slice(0, i).forEach(x => novos[x] = filtros[x]); novos[k] = e.target.value;
+  aplicar(novos);
 }));
-$('limpar').onclick = async () => {
-  ordem.forEach(k => filtros[k] = ''); $('f-municipio').value = '';
-  await atualizarOpcoes(); tudo();
-};
+$('f-ativos').addEventListener('click', e => {
+  if (e.target.id === 'limpar') return aplicar({});
+  const k = e.target.dataset.k; if (!k) return;
+  const novos = {}; ordem.slice(0, ordem.indexOf(k)).forEach(x => novos[x] = filtros[x]);   // tirar a cidade tira tudo
+  aplicar(novos);
+});
+
+// ---------- busca única ----------
+let indice = null, sugAtual = [], foco = -1;
+const semAcento = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+async function carregarIndice() {
+  if (indice) return indice;
+  const linhas = await get('api/indice');
+  const cid = new Map(), bai = new Map();
+  for (const [cd, cidade, bairro] of linhas) {
+    cid.set(cd, cidade);
+    if (bairro) bai.set(cd + '|' + bairro, [cd, cidade, bairro]);
+  }
+  indice = {
+    cidades: [...cid].map(([cd, n]) => ({ tipo: 'cidade', cd, nome: n, chave: semAcento(n) })),
+    bairros: [...bai.values()].map(([cd, c, b]) => ({ tipo: 'bairro', cd, cidade: c, nome: b, chave: semAcento(b) })),
+    escolas: linhas.map(([cd, c, b, id, e]) => ({ tipo: 'escola', cd, cidade: c, bairro: b, id, nome: e, chave: semAcento(e) })),
+  };
+  return indice;
+}
+function marcar(txt, termo) {
+  const t = titulo(txt), i = semAcento(t).indexOf(termo);
+  return i < 0 ? esc(t) : esc(t.slice(0, i)) + '<mark>' + esc(t.slice(i, i + termo.length)) + '</mark>' + esc(t.slice(i + termo.length));
+}
+function procurar(termo) {
+  const t = semAcento(termo.trim());
+  if (t.length < 2) return [];
+  const palavras = t.split(/\s+/);
+  const casa = x => palavras.every(p => x.chave.includes(p) || semAcento(x.cidade).includes(p));
+  const nota = x => (x.chave.startsWith(t) ? 0 : x.chave.includes(t) ? 1 : 2);
+  const top = (lista, n) => lista.filter(casa).sort((a, b) => nota(a) - nota(b) || a.nome.localeCompare(b.nome)).slice(0, n);
+  const grupos = [top(indice.cidades.map(c => ({ ...c, cidade: '' })), 5), top(indice.bairros, 6), top(indice.escolas, 8)];
+  // o grupo com o nome que COMEÇA com o texto vem primeiro (ex.: "itinga" → bairro Itinga antes da cidade Biritinga)
+  const melhor = g => g.length ? Math.min(...g.map(nota)) : 9;
+  return grupos.map((g, i) => [g, melhor(g), i]).sort((a, b) => a[1] - b[1] || a[2] - b[2]).flatMap(x => x[0]);
+}
+function mostrarSugestoes(lista, termo) {
+  const caixa = $('f-sug'), t = semAcento(termo.trim());
+  sugAtual = lista; foco = -1;
+  if (!termo.trim()) { caixa.hidden = true; $('f-busca').setAttribute('aria-expanded', 'false'); return; }
+  const rot = { cidade: 'Cidades', bairro: 'Bairros', escola: 'Escolas' };
+  const grupos = [...new Set(lista.map(x => x.tipo))].map(tp => [tp, rot[tp]]);   // na ordem de relevância
+  caixa.innerHTML = lista.length ? grupos.map(([tp, rot]) => {
+    const g = lista.map((x, i) => [x, i]).filter(([x]) => x.tipo === tp);
+    return g.length ? `<h4>${rot}</h4>` + g.map(([x, i]) => `<button type="button" role="option" data-i="${i}">
+      <span>${marcar(x.nome, t)}</span>${x.tipo !== 'cidade' ? `<small>${x.tipo === 'escola' && x.bairro ? esc(titulo(x.bairro)) + ' · ' : ''}${esc(titulo(x.cidade))}</small>` : ''}</button>`).join('') : '';
+  }).join('') : `<p class="vazio">Nada encontrado. Tente outro nome — ou escolha a cidade no passo 1.</p>`;
+  caixa.hidden = false; $('f-busca').setAttribute('aria-expanded', 'true');
+}
+function escolher(x) {
+  $('f-sug').hidden = true; $('f-busca').value = ''; $('f-busca').blur();
+  if (x.tipo === 'cidade') aplicar({ municipio: String(x.cd) });
+  else if (x.tipo === 'bairro') aplicar({ municipio: String(x.cd), bairro: x.nome });
+  else aplicar({ municipio: String(x.cd), bairro: x.bairro || '', local: x.id });
+  $('filtro-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+$('f-busca').addEventListener('focus', carregarIndice);
+$('f-busca').addEventListener('input', async e => { await carregarIndice(); mostrarSugestoes(procurar(e.target.value), e.target.value); });
+$('f-busca').addEventListener('keydown', e => {
+  const bts = [...$('f-sug').querySelectorAll('button')];
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault(); if (!bts.length) return;
+    foco = (foco + (e.key === 'ArrowDown' ? 1 : -1) + bts.length) % bts.length;
+    bts.forEach((b, i) => b.classList.toggle('foco', i === foco)); bts[foco].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter') {
+    e.preventDefault(); const b = bts[Math.max(0, foco)]; if (b) escolher(sugAtual[+b.dataset.i]);
+  } else if (e.key === 'Escape') $('f-sug').hidden = true;
+});
+$('f-sug').addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if (b) escolher(sugAtual[+b.dataset.i]); });
+document.addEventListener('click', e => { if (!e.target.closest('.fb-busca')) $('f-sug').hidden = true; });
+
 const exportar = () => {
   $('exp-csv').href = 'api/exportar.csv?' + qs();
   $('exp-xlsx').href = 'api/exportar.xlsx?' + qs();

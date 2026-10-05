@@ -27,9 +27,12 @@
   const r2 = x => x == null ? null : Math.round(x * 100) / 100;
   // modo '26': urnas de 2026 | 'todas': 2022 e 2026 (totais por área) | 'ambas': urna a urna (existe nos dois anos)
   function filtrar(p, modo = '26') {
-    const m = p.get('municipio'), b = p.get('bairro'), l = p.get('local'), z = p.get('zona');
+    const m = p.get('municipio'), b = p.get('bairro'), z = p.get('zona');
+    // escola = "zona-local" (o número do local se repete entre zonas da mesma cidade)
+    let l = p.get('local'), lz = null;
+    if (l && l.includes('-')) [lz, l] = l.split('-');
     return R.filter(r => (!m || r.cd_municipio == m) && (!z || r.nr_zona == z) && (!b || r.bairro === b) &&
-      (!l || r.nr_local == l) && (modo === 'todas' || (modo === 'ambas' ? r.ambas : !r.so22)));
+      (!l || (r.nr_local == l && (!lz || r.nr_zona == lz))) && (modo === 'todas' || (modo === 'ambas' ? r.ambas : !r.so22)));
   }
   const R26 = () => R.filter(r => !r.so22);
 
@@ -70,6 +73,12 @@
           secoes_com_voto: f.filter(r => r.votos > 0).length },
       };
     }],
+    [/^\/api\/indice$/, () => {
+      const v = new Map();
+      for (const r of R26()) if (r.nm_local) v.set(r.nr_zona + '-' + r.nr_local + '|' + r.cd_municipio,
+        [r.cd_municipio, r.nm_municipio, r.bairro, r.nr_zona + '-' + r.nr_local, r.nm_local]);
+      return [...v.values()];
+    }],
     [/^\/api\/opcoes$/, p => {
       const mun = p.get('municipio'), zona = p.get('zona'), bairro = p.get('bairro');
       const ms = new Map(); for (const r of R26()) ms.set(r.cd_municipio, r.nm_municipio);
@@ -80,7 +89,7 @@
         if (zona) a = a.filter(r => r.nr_zona == zona);
         o.bairros = [...new Set(a.map(r => r.bairro).filter(Boolean))].sort();
         if (bairro) a = a.filter(r => r.bairro === bairro);
-        const ls = new Map(); for (const r of a) if (r.nm_local) ls.set(r.nr_local + '|' + r.nm_local, { id: r.nr_local, nome: r.nm_local });
+        const ls = new Map(); for (const r of a) if (r.nm_local) ls.set(r.nr_zona + '-' + r.nr_local, { id: r.nr_zona + '-' + r.nr_local, nome: r.nm_local });
         o.locais = [...ls.values()].sort((x, y) => x.nome.localeCompare(y.nome));
       }
       return o;
