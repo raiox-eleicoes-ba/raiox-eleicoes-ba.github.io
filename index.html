@@ -23,26 +23,6 @@
   --f-corpo: "Public Sans", "Segoe UI", system-ui, sans-serif;
   --raio: 18px;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --papel: #0b1220; --cartao: #131c2c; --tinta: #eef2f7; --tinta2: #b4bfcd; --suave: #8693a5;
-    --linha: #223047; --linha-forte: #31425d;
-    --azul: #6da7ec; --azul-vivo: #3987e5; --azul-fundo: #17294a;
-    --ganho: #3987e5; --perda: #e66767; --ganho-txt: #86b6ef; --perda-txt: #ef8a8a;
-    --sem-voto: #1d2738; --outros: #4a5870;
-    --heroi: #0f2440; --heroi-txt: #ffffff; --heroi-sub: #9fb6d4;
-  }
-}
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --papel: #0b1220; --cartao: #131c2c; --tinta: #eef2f7; --tinta2: #b4bfcd; --suave: #8693a5;
-  --linha: #223047; --linha-forte: #31425d;
-  --azul: #6da7ec; --azul-vivo: #3987e5; --azul-fundo: #17294a;
-  --ganho: #3987e5; --perda: #e66767; --ganho-txt: #86b6ef; --perda-txt: #ef8a8a;
-  --sem-voto: #1d2738; --outros: #4a5870;
-  --heroi: #0f2440; --heroi-txt: #ffffff; --heroi-sub: #9fb6d4;
-}
 * { box-sizing: border-box; }
 html, body { overflow-x: hidden; }
 body { background: var(--papel); color: var(--tinta); font: 16px/1.55 var(--f-corpo); margin: 0; }
@@ -369,7 +349,6 @@ $('modos').onclick = e => {
   const m = e.target.dataset.m; if (!m) return;
   modo = m; document.querySelectorAll('#modos button').forEach(b => b.classList.toggle('ativo', b.dataset.m === m)); pintar();
 };
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', pintar);
 
 function tip(e, c) {
   const t = $('tip');
