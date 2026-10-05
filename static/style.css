@@ -8,7 +8,7 @@
   --raio: 16px;
 }
 * { box-sizing: border-box; }
-html, body { overflow-x: hidden; }
+html, body { overflow-x: clip; }   /* clip (e não hidden) para não quebrar o menu fixo ao rolar */
 body { margin: 0; background: var(--pagina); color: var(--tinta); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
 [hidden] { display: none !important; }
 
