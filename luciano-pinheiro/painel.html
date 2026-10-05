@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1c5cab">
+<title>Votos por urna</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="../static/style.css">
+</head>
+<body>
+<div class="troca-cand" style="background:#0a1a2c;color:#c9d6e6;font:500 14px 'Public Sans','Segoe UI',system-ui,sans-serif">
+  <div style="max-width:1160px;margin:0 auto;padding:8px 16px;display:flex;gap:8px 14px;align-items:center;flex-wrap:wrap">
+    <a href="../" style="color:#c9d6e6;text-decoration:none;white-space:nowrap">‹ Todos os candidatos</a>
+    <label style="margin-left:auto;display:flex;align-items:center;gap:8px;min-width:0;flex:0 1 auto">
+      <span style="white-space:nowrap">Candidato</span>
+      <select id="troca-cand" aria-label="Trocar de candidato" style="font:600 15px inherit;padding:7px 10px;border-radius:10px;
+        border:1px solid #2c4560;background:#12263d;color:#fff;max-width:72vw"><option value="ricardo-maia">Ricardo Maia · Dep. Federal</option><option value="marcinho-oliveira">Marcinho Oliveira · Dep. Estadual</option><option value="rogerio-andrade">Rogério Andrade · Dep. Estadual</option><option value="luciano-pinheiro" selected>Luciano Pinheiro · Dep. Estadual</option><option value="antonio-henrique-jr">Antônio Henrique Jr. · Dep. Estadual</option></select>
+    </label>
+  </div>
+</div>
+<script>
+document.getElementById('troca-cand').addEventListener('change', e => {
+  const pagina = location.pathname.endsWith('painel.html') ? 'painel.html' : '';
+  location.href = '../' + e.target.value + '/' + pagina + (pagina ? location.hash : '');
+});
+</script>
+<header class="topo">
+  <div class="topo-in">
+    <div>
+      <h1><img id="t-foto" alt="" hidden><span id="t-nome">&nbsp;</span> <span class="num" id="t-num"></span></h1>
+      <p><span id="t-cargo"></span> · Bahia · Eleição 2026 <span id="t-sit" class="t-sit" hidden></span></p>
+    </div>
+    <p class="status" id="status"></p>
+  </div>
+</header>
+
+<nav class="visoes" id="visoes">
+  <a href="./" class="raio">✦ Raio-X</a>
+  <button data-v="v-2026" class="ativa">Votos 2026</button>
+  <button data-v="v-comp">2022 × 2026</button>
+</nav>
+
+<div class="conteudo">
+  <section class="filtros">
+    <label>Cidade<select id="f-municipio"><option value="">Toda a Bahia</option></select></label>
+    <label>Bairro<select id="f-bairro" disabled><option value="">Todos</option></select></label>
+    <label>Escola<select id="f-local" disabled><option value="">Todas</option></select></label>
+    <button id="limpar" class="link" hidden>Limpar filtro</button>
+  </section>
+
+  <!-- ============ VOTOS 2026 ============ -->
+  <main id="v-2026">
+    <section class="numeros">
+      <div class="numero principal"><span>Votos</span><strong id="c-votos">–</strong></div>
+      <div class="numero"><span>Dos votos válidos</span><strong id="c-pct">–</strong></div>
+      <div class="numero" id="c-pos-box"><span>Posição na Bahia</span><strong id="c-pos">–</strong></div>
+    </section>
+
+    <section class="bloco">
+      <h2>Onde ele foi votado</h2>
+      <p class="dica">Cada círculo é um local de votação. Quanto maior e mais escuro, mais votos. Toque para ver os detalhes.</p>
+      <div id="mapa" class="mapa"></div>
+      <div class="legenda-escala"><span>poucos votos</span><i></i><span>muitos votos</span></div>
+    </section>
+
+    <section class="bloco" id="detalhe-box" hidden>
+      <div class="det" id="detalhe"></div>
+    </section>
+
+    <section class="bloco">
+      <h2>Onde ele teve mais votos</h2>
+      <div class="abas" id="abas">
+        <button data-n="municipio" class="ativa">Cidades</button>
+        <button data-n="bairro">Bairros</button>
+        <button data-n="local">Escolas</button>
+      </div>
+      <div class="barras" id="ranking"></div>
+    </section>
+
+    <section class="bloco">
+      <div class="bloco-topo">
+        <h2>Todas as urnas</h2>
+        <div class="baixar">Baixar: <a id="exp-csv">CSV</a> · <a id="exp-xlsx">Excel</a></div>
+      </div>
+      <input id="busca" type="search" placeholder="Procure cidade, escola ou bairro">
+      <div class="tabela-wrap"><table>
+        <thead><tr><th>Cidade</th><th>Escola</th><th class="n">Seção</th><th class="n">Votos</th><th class="n">%</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table></div>
+      <div class="paginacao"><button id="ant" aria-label="Anterior">‹</button><span id="pag"></span><button id="prox" aria-label="Próxima">›</button></div>
+    </section>
+  </main>
+
+  <!-- ============ COMPARATIVO ============ -->
+  <main id="v-comp" hidden>
+    <section class="numeros">
+      <div class="numero"><span>2022</span><strong id="k-v22">–</strong></div>
+      <div class="numero principal"><span>2026</span><strong id="k-v26">–</strong></div>
+      <div class="numero"><span>Diferença</span><strong id="k-delta">–</strong></div>
+    </section>
+    <p class="nota" id="comp-nota"></p>
+
+    <section class="bloco">
+      <h2>Onde cresceu e onde caiu</h2>
+      <p class="dica">Azul: ganhou votos. Vermelho: perdeu votos. Quanto maior o círculo, maior a mudança.</p>
+      <div id="mapa-comp" class="mapa"></div>
+      <div class="legenda-cores"><span><i class="ganho"></i>Ganhou votos</span><span><i class="perda"></i>Perdeu votos</span></div>
+    </section>
+
+    <section class="bloco" id="detalhe-comp-box" hidden>
+      <div class="det" id="detalhe-comp"></div>
+    </section>
+
+    <section class="bloco">
+      <h2 id="comp-titulo">Onde mais cresceu</h2>
+      <div class="abas" id="comp-ordem">
+        <button data-o="ganho" class="ativa">▲ Cresceu</button>
+        <button data-o="perda">▼ Caiu</button>
+      </div>
+      <div class="abas" id="comp-nivel">
+        <button data-n="municipio" class="ativa">Cidades</button>
+        <button data-n="bairro">Bairros</button>
+        <button data-n="local">Escolas</button>
+      </div>
+      <div class="barras" id="comp-ranking"></div>
+    </section>
+
+    <section class="bloco">
+      <div class="bloco-topo">
+        <h2>Urna por urna</h2>
+        <div class="baixar">Baixar: <a id="exp-comp-csv">CSV</a> · <a id="exp-comp-xlsx">Excel</a></div>
+      </div>
+      <input id="busca-comp" type="search" placeholder="Procure cidade, escola ou bairro">
+      <div class="tabela-wrap"><table>
+        <thead><tr><th>Cidade</th><th>Escola</th><th class="n">Seção</th><th class="n">2022</th><th class="n">2026</th><th class="n">Diferença</th></tr></thead>
+        <tbody id="tbody-comp"></tbody>
+      </table></div>
+      <div class="paginacao"><button id="ant-comp" aria-label="Anterior">‹</button><span id="pag-comp"></span><button id="prox-comp" aria-label="Próxima">›</button></div>
+    </section>
+  </main>
+
+  <footer>Dados oficiais do Tribunal Superior Eleitoral (TSE).</footer>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="../static/api.js"></script>
+<script src="../static/app.js"></script>
+<script src="../static/comp.js"></script>
+</body>
+</html>

@@ -4,16 +4,32 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#1c5cab">
-<title>Votos de Ricardo Maia</title>
+<title>Votos por urna</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="static/style.css">
+<link rel="stylesheet" href="../static/style.css">
 </head>
 <body>
+<div class="troca-cand" style="background:#0a1a2c;color:#c9d6e6;font:500 14px 'Public Sans','Segoe UI',system-ui,sans-serif">
+  <div style="max-width:1160px;margin:0 auto;padding:8px 16px;display:flex;gap:8px 14px;align-items:center;flex-wrap:wrap">
+    <a href="../" style="color:#c9d6e6;text-decoration:none;white-space:nowrap">‹ Todos os candidatos</a>
+    <label style="margin-left:auto;display:flex;align-items:center;gap:8px;min-width:0;flex:0 1 auto">
+      <span style="white-space:nowrap">Candidato</span>
+      <select id="troca-cand" aria-label="Trocar de candidato" style="font:600 15px inherit;padding:7px 10px;border-radius:10px;
+        border:1px solid #2c4560;background:#12263d;color:#fff;max-width:72vw"><option value="ricardo-maia" selected>Ricardo Maia · Dep. Federal</option><option value="marcinho-oliveira">Marcinho Oliveira · Dep. Estadual</option><option value="rogerio-andrade">Rogério Andrade · Dep. Estadual</option><option value="luciano-pinheiro">Luciano Pinheiro · Dep. Estadual</option><option value="antonio-henrique-jr">Antônio Henrique Jr. · Dep. Estadual</option></select>
+    </label>
+  </div>
+</div>
+<script>
+document.getElementById('troca-cand').addEventListener('change', e => {
+  const pagina = location.pathname.endsWith('painel.html') ? 'painel.html' : '';
+  location.href = '../' + e.target.value + '/' + pagina + (pagina ? location.hash : '');
+});
+</script>
 <header class="topo">
   <div class="topo-in">
     <div>
-      <h1>Ricardo Maia <span class="num">1555</span></h1>
-      <p>Deputado Federal · Bahia · Eleição 2026</p>
+      <h1><img id="t-foto" alt="" hidden><span id="t-nome">&nbsp;</span> <span class="num" id="t-num"></span></h1>
+      <p><span id="t-cargo"></span> · Bahia · Eleição 2026 <span id="t-sit" class="t-sit" hidden></span></p>
     </div>
     <p class="status" id="status"></p>
   </div>
@@ -129,8 +145,8 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="static/api.js"></script>
-<script src="static/app.js"></script>
-<script src="static/comp.js"></script>
+<script src="../static/api.js"></script>
+<script src="../static/app.js"></script>
+<script src="../static/comp.js"></script>
 </body>
 </html>

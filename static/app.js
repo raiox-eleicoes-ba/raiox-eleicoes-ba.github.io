@@ -31,7 +31,7 @@ const mapa = novoMapa('mapa');
 const camada = L.layerGroup().addTo(mapa);
 
 async function carregarMapa() {
-  const locais = (await get('/api/locais?' + qs())).filter(l => l.latitude && l.longitude && l.votos > 0);
+  const locais = (await get('api/locais?' + qs())).filter(l => l.latitude && l.longitude && l.votos > 0);
   camada.clearLayers();
   const max = Math.max(1, ...locais.map(l => l.votos));
   locais.sort((a, b) => a.votos - b.votos);
@@ -47,7 +47,7 @@ async function carregarMapa() {
 
 function fecharDetalhe(box) { $(box).hidden = true; }
 async function abrirLocal(mun, zona, local) {
-  const d = await get(`/api/local/${mun}/${zona}/${local}`);
+  const d = await get(`api/local/${mun}/${zona}/${local}`);
   const tv = d.secoes.reduce((s, x) => s + x.votos_candidato, 0);
   const tvv = d.secoes.reduce((s, x) => s + x.validos, 0);
   $('detalhe').innerHTML = `
@@ -64,10 +64,23 @@ async function abrirLocal(mun, zona, local) {
 
 // ---------- números ----------
 async function carregarResumo() {
-  const r = await get('/api/resumo?' + qs());
+  const r = await get('api/resumo?' + qs());
   const m = r.meta, f = r.filtro;
+  $('t-nome').textContent = m.candidato; $('t-num').textContent = m.numero; $('t-cargo').textContent = m.cargo;
+  if (m.slug && $('t-foto').hidden) { $('t-foto').src = `../fotos/${m.slug}.jpeg`; $('t-foto').onload = () => $('t-foto').hidden = false; }
+  if (m.situacao_texto) {
+    const tipo = m.situacao_tipo.replace('_calc', '');
+    const ic = { eleito: '✔', suplente: '↻', nao_eleito: '✕', aguardando: '⏳' }[tipo] || '';
+    if (m.situacao_tipo.endsWith('_calc')) $('t-sit').title = 'Pela distribuição de vagas do TSE · confirmação oficial pendente';
+    $('t-sit').className = 't-sit ' + tipo; $('t-sit').textContent = `${ic} ${m.situacao_texto}`; $('t-sit').hidden = false;
+  }
+  document.title = `${m.candidato} · votos por urna`;
+  // sem candidatura em 2022: esconde a aba do comparativo
+  const semComp = !m.nr_2022;
+  document.querySelector('#visoes [data-v="v-comp"]').hidden = semComp;
+  if (semComp && !$('v-comp').hidden) mostrar('v-2026');
   $('status').textContent = m.oficial_secoes_pct === '100,00'
-    ? 'Resultado final do TSE · 100% das urnas apuradas'
+    ? (m.situacao_tipo === 'aguardando' || m.situacao_tipo.endsWith('_calc') ? '100% das urnas apuradas · totalização final do TSE pendente' : 'Resultado final do TSE · 100% das urnas apuradas')
     : `Apuração do TSE: ${m.oficial_secoes_pct}% das urnas · atualizado em ${m.atualizado_em}`;
   // Sem filtro, mostra o total oficial do TSE (inclui urnas cujo boletim ainda não foi publicado)
   if (!qs() && m.oficial_votos) {
@@ -123,7 +136,7 @@ function barras(el, dados, { valor, rotulo, info, cor, clique }) {
 
 let nivel = 'municipio';
 async function carregarRanking() {
-  const dados = await get(`/api/ranking/${nivel}?limite=2000&` + qs());
+  const dados = await get(`api/ranking/${nivel}?limite=2000&` + qs());
   barras($('ranking'), dados, {
     valor: d => d.votos,
     rotulo: d => fmt(d.votos),
@@ -158,7 +171,7 @@ function tabela({ url, tbody, busca, pag, ant, prox, campos, linha }) {
   return async () => { linhas = await get(url() + qs()); filtrar(); };
 }
 const carregarTabela = tabela({
-  url: () => '/api/secoes?', tbody: 'tbody', busca: 'busca', pag: 'pag', ant: 'ant', prox: 'prox',
+  url: () => 'api/secoes?', tbody: 'tbody', busca: 'busca', pag: 'pag', ant: 'ant', prox: 'prox',
   campos: l => [l.municipio, l.local, l.bairro, l.secao],
   linha: l => `<tr><td>${esc(titulo(l.municipio))}</td><td>${esc(titulo(l.local))}</td><td class="n">${l.secao}</td>
     <td class="n"><b>${fmt(l.votos)}</b></td><td class="n">${pct(l.votos, l.validos)}</td></tr>`,
@@ -170,7 +183,7 @@ function preencher(sel, itens, rotulo, val = x => x, txt = x => x) {
   sel.disabled = !itens || !itens.length;
 }
 async function atualizarOpcoes() {
-  const o = await get('/api/opcoes?' + qs());
+  const o = await get('api/opcoes?' + qs());
   if ($('f-municipio').options.length <= 1)
     preencher($('f-municipio'), o.municipios, 'Toda a Bahia', x => x.id, x => x.nome);
   preencher($('f-bairro'), o.bairros, 'Todos');
@@ -189,8 +202,8 @@ $('limpar').onclick = async () => {
   await atualizarOpcoes(); tudo();
 };
 const exportar = () => {
-  $('exp-csv').href = '/api/exportar.csv?' + qs();
-  $('exp-xlsx').href = '/api/exportar.xlsx?' + qs();
+  $('exp-csv').href = 'api/exportar.csv?' + qs();
+  $('exp-xlsx').href = 'api/exportar.xlsx?' + qs();
 };
 
 function tudo() {

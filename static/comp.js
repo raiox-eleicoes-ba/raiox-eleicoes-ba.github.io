@@ -19,7 +19,7 @@ $('visoes').addEventListener('click', e => { const b = e.target.closest('button'
 
 // ---------- números ----------
 async function resumoComp() {
-  const [r, res] = await Promise.all([get('/api/comp/resumo?' + qs()), get('/api/resumo')]);
+  const [r, res] = await Promise.all([get('api/comp/resumo?' + qs()), get('api/resumo')]);
   const b = r.base;
   let v22, v26, nota;
   if (!qs() && r.posicao22 && res.meta.oficial_votos) {
@@ -36,12 +36,14 @@ async function resumoComp() {
   $('k-v22').textContent = fmt(v22);
   $('k-v26').textContent = fmt(v26);
   $('k-delta').innerHTML = `<span class="${classe(d)}">${sinal(d)}</span>`;
+  const m = res.meta;
+  if (m.nr_2022 && m.nr_2022 !== m.numero) nota += ` Em 2022 concorreu com o nº ${m.nr_2022}; a comparação usa esse número.`;
   $('comp-nota').textContent = nota;
 }
 
 // ---------- mapa ----------
 async function mapaCompCarregar() {
-  const ls = (await get('/api/comp/locais?' + qs())).filter(l => l.latitude && l.longitude && l.v26 !== l.v22);
+  const ls = (await get('api/comp/locais?' + qs())).filter(l => l.latitude && l.longitude && l.v26 !== l.v22);
   camadaComp.clearLayers();
   const max = Math.max(1, ...ls.map(l => Math.abs(l.v26 - l.v22)));
   ls.sort((a, b) => Math.abs(a.v26 - a.v22) - Math.abs(b.v26 - b.v22));
@@ -58,10 +60,11 @@ async function mapaCompCarregar() {
 }
 
 async function localComp(mun, zona, local) {
-  const s = (await get(`/api/comp/local/${mun}/${zona}/${local}`));
+  const s = (await get(`api/comp/local/${mun}/${zona}/${local}`));
   if (!s.length) return;
-  const i = s[0], amb = s.filter(x => x.situacao === 'ambas');
-  const v22 = amb.reduce((a, x) => a + x.votos_22, 0), v26 = amb.reduce((a, x) => a + x.votos_26, 0);
+  // total da escola: todas as urnas de cada ano (urnas são criadas/extintas entre eleições)
+  const i = s[0];
+  const v22 = s.reduce((a, x) => a + (x.votos_22 || 0), 0), v26 = s.reduce((a, x) => a + (x.votos_26 || 0), 0);
   $('detalhe-comp').innerHTML = `
     <button class="fechar" aria-label="Fechar" onclick="fecharDetalhe('detalhe-comp-box')">×</button>
     <h3>${esc(titulo(i.nm_local || i.nm_local_22))}</h3>
@@ -69,8 +72,13 @@ async function localComp(mun, zona, local) {
     <div class="resumo"><div><b>${fmt(v22)}</b><small>2022</small></div><div><b>${fmt(v26)}</b><small>2026</small></div>
       <div><b class="${classe(v26 - v22)}">${sinal(v26 - v22)}</b><small>diferença</small></div></div>
     <table><thead><tr><th>Seção</th><th class="n">2022</th><th class="n">2026</th><th class="n">Diferença</th></tr></thead><tbody>
-    ${amb.map(x => `<tr><td>${x.nr_secao}</td><td class="n">${fmt(x.votos_22)}</td><td class="n">${fmt(x.votos_26)}</td>
-      <td class="n"><span class="${classe(x.votos_26 - x.votos_22)}">${sinal(x.votos_26 - x.votos_22)}</span></td></tr>`).join('')}
+    ${s.map(x => {
+      const ok = x.votos_22 != null && x.votos_26 != null;
+      const obs = x.votos_22 == null ? ' <small>(urna nova)</small>' : x.votos_26 == null ? ' <small>(urna extinta)</small>' : '';
+      return `<tr><td>${x.nr_secao}${obs}</td><td class="n">${x.votos_22 != null ? fmt(x.votos_22) : '–'}</td>
+        <td class="n">${x.votos_26 != null ? fmt(x.votos_26) : '–'}</td>
+        <td class="n">${ok ? `<span class="${classe(x.votos_26 - x.votos_22)}">${sinal(x.votos_26 - x.votos_22)}</span>` : '–'}</td></tr>`;
+    }).join('')}
     </tbody></table>`;
   $('detalhe-comp-box').hidden = false;
   $('detalhe-comp-box').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -80,7 +88,7 @@ async function localComp(mun, zona, local) {
 let nivelC = 'municipio', ordemC = 'ganho';
 async function rankingComp() {
   $('comp-titulo').textContent = ordemC === 'ganho' ? 'Onde mais cresceu' : 'Onde mais caiu';
-  const d = (await get(`/api/comp/ranking/${nivelC}?ordem=${ordemC}&limite=2000&` + qs()))
+  const d = (await get(`api/comp/ranking/${nivelC}?ordem=${ordemC}&limite=2000&` + qs()))
     .filter(x => ordemC === 'ganho' ? x.delta > 0 : x.delta < 0);
   barras($('comp-ranking'), d, {
     valor: x => x.delta,
@@ -101,7 +109,7 @@ for (const [id, campo] of [['comp-nivel', 'n'], ['comp-ordem', 'o']]) {
 
 // ---------- tabela ----------
 const tabelaComp = tabela({
-  url: () => '/api/comp/tabela?', tbody: 'tbody-comp', busca: 'busca-comp', pag: 'pag-comp', ant: 'ant-comp', prox: 'prox-comp',
+  url: () => 'api/comp/tabela?', tbody: 'tbody-comp', busca: 'busca-comp', pag: 'pag-comp', ant: 'ant-comp', prox: 'prox-comp',
   campos: l => [l.municipio, l.local_2026, l.local_2022, l.bairro, l.secao],
   linha: l => {
     const ok = l.votos_22 != null && l.votos_26 != null;
@@ -113,8 +121,8 @@ const tabelaComp = tabela({
 
 window.tudoComp = () => {
   $('detalhe-comp-box').hidden = true;
-  $('exp-comp-csv').href = '/api/comp/exportar.csv?' + qs();
-  $('exp-comp-xlsx').href = '/api/comp/exportar.xlsx?' + qs();
+  $('exp-comp-csv').href = 'api/comp/exportar.csv?' + qs();
+  $('exp-comp-xlsx').href = 'api/comp/exportar.xlsx?' + qs();
   if ($('v-comp').hidden) { compCarregado = false; return; }
   compCarregado = true;
   resumoComp(); mapaCompCarregar(); rankingComp(); tabelaComp();

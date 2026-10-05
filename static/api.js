@@ -12,7 +12,9 @@
         nm_municipio: L[0], nm_local: L[1], endereco: L[2], bairro: L[3], cep: L[4], latitude: L[5], longitude: L[6],
         aptos: r[NR.ap], comparecimento: r[NR.cp], validos: r[NR.vv], brancos: r[NR.br], nulos: r[NR.nu],
         votos: r[NR.v], secoes_agregadas: r[NR.ag], v22: r[NR.v22], vv22: r[NR.vv22],
-        nm_local_22: r[NR.n22] ?? (r[NR.v22] != null ? L[1] : null), ambas: r[NR.v22] != null,
+        nm_local_22: r[NR.n22] ?? (r[NR.v22] != null ? L[1] : null),
+        so22: r[NR.v] == null,                                   // urna de 2022 que não existe em 2026
+        ambas: r[NR.v22] != null && r[NR.v] != null,
       };
     });
   });
@@ -20,11 +22,13 @@
   const soma = (a, f) => a.reduce((t, x) => t + (f(x) || 0), 0);
   const agrupar = (a, chave) => { const g = new Map(); for (const x of a) { const k = chave(x); (g.get(k) || g.set(k, []).get(k)).push(x); } return [...g.values()]; };
   const r2 = x => x == null ? null : Math.round(x * 100) / 100;
-  function filtrar(p, soAmbas) {
+  // modo '26': urnas de 2026 | 'todas': 2022 e 2026 (totais por área) | 'ambas': urna a urna (existe nos dois anos)
+  function filtrar(p, modo = '26') {
     const m = p.get('municipio'), b = p.get('bairro'), l = p.get('local'), z = p.get('zona');
     return R.filter(r => (!m || r.cd_municipio == m) && (!z || r.nr_zona == z) && (!b || r.bairro === b) &&
-      (!l || r.nr_local == l) && (!soAmbas || r.ambas));
+      (!l || r.nr_local == l) && (modo === 'todas' || (modo === 'ambas' ? r.ambas : !r.so22)));
   }
+  const R26 = () => R.filter(r => !r.so22);
 
   const NOMES = {
     municipio: g => g[0].nm_municipio,
@@ -63,10 +67,10 @@
     }],
     [/^\/api\/opcoes$/, p => {
       const mun = p.get('municipio'), zona = p.get('zona'), bairro = p.get('bairro');
-      const ms = new Map(); for (const r of R) ms.set(r.cd_municipio, r.nm_municipio);
+      const ms = new Map(); for (const r of R26()) ms.set(r.cd_municipio, r.nm_municipio);
       const o = { municipios: [...ms].map(([id, nome]) => ({ id, nome })).sort((a, b) => a.nome.localeCompare(b.nome)) };
       if (mun) {
-        let a = R.filter(r => r.cd_municipio == mun);
+        let a = R26().filter(r => r.cd_municipio == mun);
         o.zonas = [...new Set(a.map(r => r.nr_zona))].sort((x, y) => x - y);
         if (zona) a = a.filter(r => r.nr_zona == zona);
         o.bairros = [...new Set(a.map(r => r.bairro).filter(Boolean))].sort();
@@ -82,7 +86,7 @@
       secoes: g.length, votos: soma(g, r => r.votos), validos: soma(g, r => r.validos),
     }))],
     [/^\/api\/local\/(\d+)\/(\d+)\/(\d+)$/, (p, m) => {
-      const g = R.filter(r => r.cd_municipio == m[1] && r.nr_zona == m[2] && r.nr_local == m[3]).sort((a, b) => a.nr_secao - b.nr_secao);
+      const g = R26().filter(r => r.cd_municipio == m[1] && r.nr_zona == m[2] && r.nr_local == m[3]).sort((a, b) => a.nr_secao - b.nr_secao);
       return {
         info: g.length ? { nm_local: g[0].nm_local, endereco: g[0].endereco, bairro: g[0].bairro, cep: g[0].cep, nm_municipio: g[0].nm_municipio } : {},
         secoes: g.map(r => ({ nr_secao: r.nr_secao, secoes_agregadas: r.secoes_agregadas, aptos: r.aptos, comparecimento: r.comparecimento,
@@ -96,16 +100,16 @@
     }],
     [/^\/api\/secoes$/, p => tabela(filtrar(p))],
     [/^\/api\/comp\/resumo$/, p => {
-      const f = filtrar(p, true);
+      const f = filtrar(p, 'todas'), amb = f.filter(r => r.ambas);
       return {
         base: { secoes: f.length, v22: soma(f, r => r.v22), v26: soma(f, r => r.votos), vv22: soma(f, r => r.vv22), vv26: soma(f, r => r.validos),
-          ganhou: f.filter(r => r.votos > r.v22).length, perdeu: f.filter(r => r.votos < r.v22).length },
+          ganhou: amb.filter(r => r.votos > r.v22).length, perdeu: amb.filter(r => r.votos < r.v22).length },
         posicao22: D.posicao22, cobertura: { ambas: R.filter(r => r.ambas).length },
       };
     }],
     [/^\/api\/comp\/ranking\/(\w+)$/, (p, m) => {
       const n = m[1], lim = +(p.get('limite') || 30), ordem = p.get('ordem') || 'ganho';
-      const L = agrupar(filtrar(p, true), CHAVES[n]).map(g => {
+      const L = agrupar(filtrar(p, 'todas'), CHAVES[n]).map(g => {
         const v22 = soma(g, r => r.v22), v26 = soma(g, r => r.votos), vv22 = soma(g, r => r.vv22), vv26 = soma(g, r => r.validos);
         return { nome: n === 'secao' ? 'Z' + g[0].nr_zona + ' / S' + g[0].nr_secao + ' — ' + (g[0].nm_local ?? '?') + ' — ' + g[0].nm_municipio : NOMES[n](g),
           ...ids(n, g), v22, v26, delta: v26 - v22, vv22, vv26, secoes: g.length,
@@ -114,22 +118,23 @@
       L.sort(ordem === 'perda' ? (a, b) => a.delta - b.delta : (a, b) => b.delta - a.delta);
       return L.slice(0, lim);
     }],
-    [/^\/api\/comp\/locais$/, p => agrupar(filtrar(p, true), CHAVES.local).map(g => ({
+    [/^\/api\/comp\/locais$/, p => agrupar(filtrar(p, 'todas'), CHAVES.local).map(g => ({
       cd_municipio: g[0].cd_municipio, nm_municipio: g[0].nm_municipio, nr_zona: g[0].nr_zona, nr_local: g[0].nr_local, nm_local: g[0].nm_local,
       latitude: g[0].latitude, longitude: g[0].longitude, v22: soma(g, r => r.v22), v26: soma(g, r => r.votos),
     }))],
     [/^\/api\/comp\/local\/(\d+)\/(\d+)\/(\d+)$/, (p, m) => R.filter(r => r.cd_municipio == m[1] && r.nr_zona == m[2] && r.nr_local == m[3])
       .sort((a, b) => a.nr_secao - b.nr_secao).map(r => ({
-        nr_secao: r.nr_secao, situacao: r.ambas ? 'ambas' : 'so_2026', votos_22: r.v22, validos_22: r.vv22, votos_26: r.votos, validos_26: r.validos,
+        nr_secao: r.nr_secao, situacao: r.ambas ? 'ambas' : r.so22 ? 'so_2022' : 'so_2026', votos_22: r.v22, validos_22: r.vv22, votos_26: r.votos, validos_26: r.validos,
         nm_local: r.nm_local, nm_local_22: r.nm_local_22, endereco: r.endereco, bairro: r.bairro, nm_municipio: r.nm_municipio,
       }))],
-    [/^\/api\/comp\/tabela$/, p => tabelaComp(filtrar(p, true))],
+    [/^\/api\/comp\/tabela$/, p => tabelaComp(filtrar(p, 'ambas'))],
   ];
 
   async function get(url) {
     await pronto;
     const u = new URL(url, location.href);
-    for (const [re, fn] of ROTAS) { const m = u.pathname.match(re); if (m) return fn(u.searchParams, m); }
+    const caminho = u.pathname.replace(/^.*?\/api\//, '/api/');   // aceita caminhos relativos (…/<candidato>/api/…)
+    for (const [re, fn] of ROTAS) { const m = caminho.match(re); if (m) return fn(u.searchParams, m); }
     throw new Error('Rota desconhecida: ' + u.pathname);
   }
 
@@ -141,14 +146,15 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
   document.addEventListener('click', async e => {
-    const a = e.target.closest('a[href*="/api/"][href*="exportar."]');
+    const a = e.target.closest('a[href*="api/"][href*="exportar."]');
     if (!a) return;
     e.preventDefault();
     await pronto;
     const u = new URL(a.getAttribute('href'), location.href);
     const comp = u.pathname.includes('/comp/'), fmtArq = u.pathname.endsWith('.xlsx') ? 'xlsx' : 'csv';
-    const linhas = comp ? tabelaComp(filtrar(u.searchParams, true)) : tabela(filtrar(u.searchParams));
-    const nome = comp ? 'ricardo_maia_2022x2026' : 'ricardo_maia_secoes';
+    const linhas = comp ? tabelaComp(filtrar(u.searchParams, 'ambas')) : tabela(filtrar(u.searchParams));
+    const base = (D.meta.slug || 'candidato').replace(/-/g, '_');
+    const nome = comp ? base + '_2022x2026' : base + '_secoes';
     if (fmtArq === 'xlsx' && window.XLSX) {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(linhas), comp ? '2022 x 2026' : 'Seções');
