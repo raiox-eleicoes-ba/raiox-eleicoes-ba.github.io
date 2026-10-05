@@ -11,6 +11,54 @@
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="../static/style.css">
+<style>/* Navegação principal (Raio-X · Votos 2026 · 2022 × 2026) — comum ao Raio-X e ao painel.
+   Computador: três botões grandes com ícone e explicação. Celular: barra fixa embaixo, estilo aplicativo. */
+.nav-sis { position: sticky; top: 0; z-index: 900; background: #ffffff; border-bottom: 1px solid #e2e6ec;
+  box-shadow: 0 4px 14px rgba(14, 34, 56, .06); }
+.nav-sis .ns-in { max-width: 1160px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 10px; justify-content: center; }
+.nav-sis .ns-item { flex: 1 1 0; max-width: 300px; display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+  border: 1.5px solid #c9d0da; border-radius: 14px; background: #f3f5f8; color: #0e2238; text-decoration: none;
+  font: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s, transform .15s; min-width: 0; }
+.nav-sis .ns-item:hover { border-color: #2a78d6; background: #e8f0fb; transform: translateY(-1px); }
+.nav-sis .ns-item:focus-visible { outline: 3px solid #2a78d6; outline-offset: 2px; }
+.nav-sis .ns-ico { flex: none; width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center;
+  background: #ffffff; color: #1c5cab; border: 1px solid #e2e6ec; }
+.nav-sis .ns-ico svg { width: 22px; height: 22px; }
+.nav-sis .ns-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.nav-sis .ns-txt b { font-size: 16px; font-weight: 700; }
+.nav-sis .ns-txt small { font-size: 12.5px; color: #4a5568; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-sis .ns-item.ativo, .nav-sis .ns-item.ativa { background: #1c5cab; border-color: #1c5cab; color: #ffffff; }
+.nav-sis .ns-item.ativo .ns-ico, .nav-sis .ns-item.ativa .ns-ico { background: rgba(255, 255, 255, .16); color: #ffffff; border-color: transparent; }
+.nav-sis .ns-item.ativo small, .nav-sis .ns-item.ativa small { color: rgba(255, 255, 255, .85); }
+
+/* chamadas para as outras telas (dentro do Raio-X) */
+.cta-nav { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+.cta-nav a { display: inline-flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: 12px; font-weight: 700;
+  font-size: 15px; text-decoration: none; background: #ffffff; color: #0e2238; box-shadow: 0 6px 18px rgba(0, 0, 0, .18); }
+.cta-nav a.sec { background: rgba(255, 255, 255, .12); color: #ffffff; box-shadow: none; border: 1.5px solid rgba(255, 255, 255, .45); }
+.cta-nav a:hover { transform: translateY(-1px); }
+.cta-nav svg { width: 20px; height: 20px; }
+.cta-fim { background: #0e2238; color: #ffffff; border-radius: 18px; padding: 22px; }
+.cta-fim h2 { color: #ffffff; }
+.cta-fim p { color: #a9bdd6; margin: 4px 0 0; }
+
+@media (max-width: 700px) {
+  /* barra fixa embaixo, como aplicativo */
+  .nav-sis { position: fixed; top: auto; bottom: 0; left: 0; right: 0; border-top: 1px solid #e2e6ec; border-bottom: 0;
+    box-shadow: 0 -6px 18px rgba(14, 34, 56, .10); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .nav-sis .ns-in { padding: 6px 8px; gap: 6px; }
+  .nav-sis .ns-item { flex-direction: column; gap: 3px; padding: 6px 4px; border: 0; background: transparent; border-radius: 12px;
+    text-align: center; justify-content: center; }
+  .nav-sis .ns-item:hover { transform: none; background: #f3f5f8; }
+  .nav-sis .ns-ico { width: 34px; height: 30px; border: 0; background: transparent; }
+  .nav-sis .ns-txt b { font-size: 13px; }
+  .nav-sis .ns-txt small { display: none; }
+  .nav-sis .ns-item.ativo, .nav-sis .ns-item.ativa { background: #e8f0fb; color: #1c5cab; }
+  .nav-sis .ns-item.ativo .ns-ico, .nav-sis .ns-item.ativa .ns-ico { background: #1c5cab; color: #ffffff; border-radius: 10px; }
+  body { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important; }
+  .cta-nav a { flex: 1 1 100%; justify-content: center; }
+}
+</style>
 </head>
 <body>
 <div class="troca-cand" style="background:#0a1a2c;color:#c9d6e6;font:500 14px 'Public Sans','Segoe UI',system-ui,sans-serif">
@@ -39,11 +87,7 @@ document.getElementById('troca-cand').addEventListener('change', e => {
   </div>
 </header>
 
-<nav class="visoes" id="visoes">
-  <a href="./" class="raio">✦ Raio-X</a>
-  <button data-v="v-2026" class="ativa">Votos 2026</button>
-  <button data-v="v-comp">2022 × 2026</button>
-</nav>
+<nav class="nav-sis" id="visoes" aria-label="Seções"><div class="ns-in"><a class="ns-item" href="./"><span class="ns-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span><span class="ns-txt"><b>Raio-X</b><small>Resumo, mapa e destaques</small></span></a><button class="ns-item ativa" data-v="v-2026"><span class="ns-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="10" width="18" height="11" rx="2"/><path d="M8 10V4h8v6M10 7h4M7 15h10"/></svg></span><span class="ns-txt"><b>Votos 2026</b><small>Por cidade, escola e urna</small></span></button><button class="ns-item" data-v="v-comp"><span class="ns-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-4-4M20 16H7l4 4"/></svg></span><span class="ns-txt"><b>2022 × 2026</b><small>Onde cresceu e onde caiu</small></span></button></div></nav>
 
 <div class="conteudo">
   <section class="filtros">
