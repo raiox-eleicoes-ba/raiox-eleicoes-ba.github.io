@@ -4,8 +4,9 @@ const pct = (a, b) => b ? pctN(a, b).toLocaleString('pt-BR', { maximumFractionDi
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const get = url => window.API ? API.get(url) : fetch(url).then(r => r.json());
-const titulo = s => String(s ?? '').toLowerCase().replace(/(^|[\s\-/(])(\p{L})/gu, (m, a, b) => a + b.toUpperCase())
-  .replace(/\b(De|Da|Do|Das|Dos|E)\b/g, w => w.toLowerCase());
+const titulo = s => String(s ?? '').toLowerCase().replace(/(^|[\s\-/('])(\p{L})/gu, (m, a, b) => a + b.toUpperCase())
+  .replace(/\b(De|Da|Do|Das|Dos|E)(?=\s)|\bD(?=')/g, w => w.toLowerCase())   // "Rio de Contas", "Dias d'Ávila"
+  .replace(/\b(Ii|Iii|Iv|Vi|Vii|Viii|Ix|Xi|Xii)\b/g, w => w.toUpperCase());      // "Dom Pedro II"
 
 const filtros = { municipio: '', bairro: '', local: '' };
 const qs = () => new URLSearchParams(Object.entries(filtros).filter(([, v]) => v)).toString();
@@ -178,69 +179,46 @@ const carregarTabela = tabela({
     <td class="n"><b>${fmt(l.votos)}</b></td><td class="n">${pct(l.votos, l.validos)}</td></tr>`,
 });
 
-// ---------- filtros ----------
-// Três jeitos de filtrar, sempre sincronizados: busca única (cidade/bairro/escola), passos 1-2-3 e etiquetas removíveis.
-// Escola = "zona-local" (o número do local se repete entre zonas da mesma cidade).
-function preencher(sel, itens, rotulo, val = x => x, txt = x => x) {
-  sel.innerHTML = `<option value="">${rotulo}</option>` + (itens || []).map(i => `<option value="${esc(val(i))}">${esc(titulo(txt(i)))}</option>`).join('');
-  sel.disabled = !itens || !itens.length;
-}
-const nomeSel = id => { const s = $(id); return s.value && s.selectedIndex > 0 ? s.options[s.selectedIndex].text : ''; };
+// ---------- seletor de local (cidade › bairro › escola) ----------
+// Uma linha "Mostrando: X" + caminho clicável. Ao tocar, abre um painel com busca e listas com os votos do candidato,
+// para descer da Bahia → cidade → bairro → escola. Escola = "zona-local" (o número do local se repete entre zonas).
+const nomes = { municipio: '', bairro: '', local: '' };
+const semAcento = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-async function atualizarOpcoes() {
-  const o = await get('api/opcoes?' + qs());
-  if ($('f-municipio').options.length <= 1)
-    preencher($('f-municipio'), o.municipios, 'Toda a Bahia', x => x.id, x => x.nome);
-  $('f-municipio').value = filtros.municipio;
-  preencher($('f-bairro'), o.bairros, filtros.municipio ? 'Todos os bairros' : 'Escolha a cidade primeiro');
-  preencher($('f-local'), o.locais, filtros.municipio ? 'Todas as escolas' : 'Escolha a cidade primeiro', x => x.id, x => x.nome);
-  $('f-bairro').value = filtros.bairro; $('f-local').value = filtros.local;
-  desenharAtivos();
+function desenharEscopo() {
+  $('esc-atual').textContent = titulo(nomes.local || nomes.bairro || nomes.municipio) || 'Toda a Bahia';
+  const tr = $('esc-trilha');
+  if (!filtros.municipio) { tr.hidden = true; tr.innerHTML = ''; return; }
+  const niveis = [['bahia', 'Bahia'], ['municipio', nomes.municipio], ['bairro', nomes.bairro], ['local', nomes.local]].filter(([k, n]) => k === 'bahia' || (filtros[k] && n));
+  tr.innerHTML = niveis.map(([k, n], i) => (i ? '<span class="sep">›</span>' : '') +
+    (i < niveis.length - 1 ? `<button type="button" data-n="${k}">${esc(titulo(n))}</button>` : `<b>${esc(titulo(n))}</b>`)).join('') +
+    `<span class="res" id="f-res"></span>`;
+  tr.hidden = false;
 }
-
-function desenharAtivos() {
-  const itens = [['municipio', nomeSel('f-municipio')], ['bairro', filtros.bairro ? titulo(filtros.bairro) : ''], ['local', nomeSel('f-local')]]
-    .filter(([k, n]) => filtros[k] && n);
-  $('f-ativos').innerHTML = itens.length
-    ? itens.map(([k, n]) => `<span class="fb-chip"><span>${esc(n)}</span><button type="button" data-k="${k}" aria-label="Remover ${esc(n)}">×</button></span>`).join('') +
-      `<button type="button" class="fb-limpar" id="limpar">Limpar</button><span class="fb-res" id="f-res"></span>`
-    : '';   // sem filtro: a linha some (caixa mais compacta)
-}
-// passo a passo: aberto no computador (cabe numa linha), recolhido no celular
-if (innerWidth > 700) $('fb-passo').open = true;
-// linha de resultado ("Mostrando 15 urnas · 2.487 votos"), preenchida pelo resumo
+// "15 urnas · 2.487 votos (68,4% dos válidos)", preenchido pelo resumo
 function resultadoFiltro(f) {
   const r = $('f-res'); if (!r) return;
   r.innerHTML = qs() ? `<b>${fmt(f.secoes)}</b> ${f.secoes === 1 ? 'urna' : 'urnas'} · <b>${fmt(f.votos)}</b> ${f.votos === 1 ? 'voto' : 'votos'} (${pct(f.votos, f.validos)} dos válidos)` : '';
 }
-
-async function aplicar(novos) {
+function aplicar(novos, novosNomes) {
   Object.assign(filtros, { municipio: '', bairro: '', local: '' }, novos);
-  await atualizarOpcoes(); tudo();
+  Object.assign(nomes, { municipio: '', bairro: '', local: '' }, novosNomes);
+  fecharFolha(); desenharEscopo(); tudo();
 }
-const ordem = ['municipio', 'bairro', 'local'];
-ordem.forEach((k, i) => $('f-' + k).addEventListener('change', e => {
-  const novos = {}; ordem.slice(0, i).forEach(x => novos[x] = filtros[x]); novos[k] = e.target.value;
-  aplicar(novos);
-}));
-$('f-ativos').addEventListener('click', e => {
-  if (e.target.id === 'limpar') return aplicar({});
-  const k = e.target.dataset.k; if (!k) return;
-  const novos = {}; ordem.slice(0, ordem.indexOf(k)).forEach(x => novos[x] = filtros[x]);   // tirar a cidade tira tudo
-  aplicar(novos);
+$('esc-trilha').addEventListener('click', e => {
+  const k = e.target.dataset.n; if (!k) return;
+  const ate = { bahia: 0, municipio: 1, bairro: 2 }[k], ordem = ['municipio', 'bairro', 'local'];
+  const f = {}, n = {}; ordem.slice(0, ate).forEach(x => { f[x] = filtros[x]; n[x] = nomes[x]; });
+  aplicar(f, n);
 });
 
-// ---------- busca única ----------
-let indice = null, sugAtual = [], foco = -1;
-const semAcento = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+// ---------- dados das listas ----------
+let indice = null;
 async function carregarIndice() {
   if (indice) return indice;
   const linhas = await get('api/indice');
   const cid = new Map(), bai = new Map();
-  for (const [cd, cidade, bairro] of linhas) {
-    cid.set(cd, cidade);
-    if (bairro) bai.set(cd + '|' + bairro, [cd, cidade, bairro]);
-  }
+  for (const [cd, cidade, bairro] of linhas) { cid.set(cd, cidade); if (bairro) bai.set(cd + '|' + bairro, [cd, cidade, bairro]); }
   indice = {
     cidades: [...cid].map(([cd, n]) => ({ tipo: 'cidade', cd, nome: n, chave: semAcento(n) })),
     bairros: [...bai.values()].map(([cd, c, b]) => ({ tipo: 'bairro', cd, cidade: c, nome: b, chave: semAcento(b) })),
@@ -248,56 +226,126 @@ async function carregarIndice() {
   };
   return indice;
 }
+const cacheVotos = {};
+async function votos(nivel, extra = '') {     // {chave: {votos, validos}} do candidato
+  const url = `api/ranking/${nivel}?limite=100000${extra}`;
+  if (cacheVotos[url]) return cacheVotos[url];
+  const m = {};
+  for (const r of await get(url)) {
+    const k = nivel === 'municipio' ? r.nome : nivel === 'bairro' ? r.bairro : `${+r.nr_zona}-${+r.nr_local}`;
+    m[k] = r;
+  }
+  return (cacheVotos[url] = m);
+}
+
+// ---------- painel ----------
+const fl = { nivel: 'bahia', cd: '', cidade: '', bairro: '', aba: 'bairros' };
+function abrirFolha() {
+  Object.assign(fl, filtros.bairro ? { nivel: 'bairro', cd: filtros.municipio, cidade: nomes.municipio, bairro: filtros.bairro }
+    : filtros.municipio ? { nivel: 'cidade', cd: filtros.municipio, cidade: nomes.municipio, bairro: '' } : { nivel: 'bahia', cd: '', cidade: '', bairro: '' });
+  $('f-busca').value = '';
+  $('folha').hidden = false; document.body.style.overflow = 'hidden';
+  renderFolha();
+  if (innerWidth > 700) setTimeout(() => $('f-busca').focus(), 50);
+}
+function fecharFolha() { $('folha').hidden = true; document.body.style.overflow = ''; }
+$('esc-abrir').addEventListener('click', abrirFolha);
+$('folha-fechar').addEventListener('click', fecharFolha);
+$('folha').addEventListener('click', e => { if (e.target.id === 'folha') fecharFolha(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('folha').hidden) fecharFolha(); });
+$('folha-voltar').addEventListener('click', () => {
+  if ($('f-busca').value) { $('f-busca').value = ''; return renderFolha(); }
+  if (fl.nivel === 'bairro') Object.assign(fl, { nivel: 'cidade', bairro: '' }); else Object.assign(fl, { nivel: 'bahia', cd: '', cidade: '' });
+  renderFolha();
+});
+$('folha-abas').addEventListener('click', e => {
+  const a = e.target.dataset.a; if (!a) return;
+  fl.aba = a; renderFolha();
+});
+
+const item = (acao, nome, sub, v, extraCls = '') => `<button type="button" class="fl-item ${extraCls}" data-acao='${esc(JSON.stringify(acao)).replace(/'/g, '&#39;')}'>
+  <span class="tx"><span class="nm">${nome}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</span>
+  <span class="v">${v ? `${fmt(v.votos)}<small>${pct(v.votos, v.validos)}</small>` : '<small>0 votos</small>'}</span></button>`;
+const porVotos = (lista, chave, mapa) => lista.map(x => [x, mapa[chave(x)]]).sort((a, b) => ((b[1]?.votos || 0) - (a[1]?.votos || 0)) || a[0].nome.localeCompare(b[0].nome));
+
+async function renderFolha() {
+  const L = $('folha-lista'); L.innerHTML = '<p class="vazio">Carregando…</p>';
+  await carregarIndice();
+  const busca = $('f-busca').value.trim();
+  $('folha-voltar').hidden = fl.nivel === 'bahia' && !busca;
+  $('folha-abas').hidden = busca || fl.nivel !== 'cidade';
+  document.querySelectorAll('#folha-abas button').forEach(b => b.classList.toggle('ativa', b.dataset.a === fl.aba));
+  if (busca) return renderBusca(busca);
+  if (fl.nivel === 'bahia') {
+    $('folha-tit').textContent = 'Escolha a cidade';
+    const vm = await votos('municipio');
+    L.innerHTML = item({ t: 'bahia' }, 'Toda a Bahia', '', null, 'todo').replace('<small>0 votos</small>', '') +
+      '<h4>Cidades · da que mais votou para a que menos</h4>' +
+      porVotos(indice.cidades, c => c.nome, vm).map(([c, v]) => item({ t: 'cidade', cd: c.cd, n: c.nome }, esc(titulo(c.nome)), '', v)).join('');
+  } else if (fl.nivel === 'cidade') {
+    $('folha-tit').textContent = titulo(fl.cidade);
+    const vc = (await votos('municipio'))[fl.cidade];
+    let h = item({ t: 'cidade-toda', cd: fl.cd, n: fl.cidade }, `Ver toda a cidade de ${esc(titulo(fl.cidade))}`, '', vc, 'todo');
+    if (fl.aba === 'bairros') {
+      const vb = await votos('bairro', `&municipio=${fl.cd}`);
+      const bs = indice.bairros.filter(b => b.cd == fl.cd);
+      h += `<h4>${bs.length} bairros · toque para ver as escolas</h4>` +
+        porVotos(bs, b => b.nome, vb).map(([b, v]) => item({ t: 'bairro', b: b.nome }, esc(titulo(b.nome)), '', v)).join('');
+    } else {
+      const ve = await votos('local', `&municipio=${fl.cd}`);
+      const es = indice.escolas.filter(e => e.cd == fl.cd);
+      h += `<h4>${es.length} escolas</h4>` +
+        porVotos(es, e => e.id, ve).map(([e, v]) => item({ t: 'escola', cd: e.cd, n: e.cidade, b: e.bairro, id: e.id, e: e.nome },
+          esc(titulo(e.nome)), esc(titulo(e.bairro)), v)).join('');
+    }
+    L.innerHTML = h;
+  } else {
+    $('folha-tit').textContent = titulo(fl.bairro);
+    const vb = (await votos('bairro', `&municipio=${fl.cd}`))[fl.bairro];
+    const ve = await votos('local', `&municipio=${fl.cd}&bairro=${encodeURIComponent(fl.bairro)}`);
+    const es = indice.escolas.filter(e => e.cd == fl.cd && e.bairro === fl.bairro);
+    L.innerHTML = item({ t: 'bairro-todo', b: fl.bairro }, `Ver todo o bairro ${esc(titulo(fl.bairro))}`, esc(titulo(fl.cidade)), vb, 'todo') +
+      `<h4>${es.length} ${es.length === 1 ? 'escola' : 'escolas'}</h4>` +
+      porVotos(es, e => e.id, ve).map(([e, v]) => item({ t: 'escola', cd: e.cd, n: e.cidade, b: e.bairro, id: e.id, e: e.nome }, esc(titulo(e.nome)), '', v)).join('');
+  }
+  L.scrollTop = 0;
+}
+
 function marcar(txt, termo) {
   const t = titulo(txt), i = semAcento(t).indexOf(termo);
   return i < 0 ? esc(t) : esc(t.slice(0, i)) + '<mark>' + esc(t.slice(i, i + termo.length)) + '</mark>' + esc(t.slice(i + termo.length));
 }
-function procurar(termo) {
-  const t = semAcento(termo.trim());
-  if (t.length < 2) return [];
-  const palavras = t.split(/\s+/);
-  const casa = x => palavras.every(p => x.chave.includes(p) || semAcento(x.cidade).includes(p));
+function renderBusca(termo) {
+  const t = semAcento(termo), palavras = t.split(/\s+/);
+  $('folha-tit').textContent = 'Resultados da busca';
+  const casa = x => palavras.every(p => x.chave.includes(p) || semAcento(x.cidade).includes(p) || semAcento(x.bairro).includes(p));
   const nota = x => (x.chave.startsWith(t) ? 0 : x.chave.includes(t) ? 1 : 2);
   const top = (lista, n) => lista.filter(casa).sort((a, b) => nota(a) - nota(b) || a.nome.localeCompare(b.nome)).slice(0, n);
-  const grupos = [top(indice.cidades.map(c => ({ ...c, cidade: '' })), 5), top(indice.bairros, 6), top(indice.escolas, 8)];
-  // o grupo com o nome que COMEÇA com o texto vem primeiro (ex.: "itinga" → bairro Itinga antes da cidade Biritinga)
-  const melhor = g => g.length ? Math.min(...g.map(nota)) : 9;
-  return grupos.map((g, i) => [g, melhor(g), i]).sort((a, b) => a[1] - b[1] || a[2] - b[2]).flatMap(x => x[0]);
+  const grupos = [['Cidades', top(indice.cidades, 6)], ['Bairros', top(indice.bairros, 8)], ['Escolas', top(indice.escolas, 12)]]
+    .filter(g => g[1].length).sort((a, b) => Math.min(...a[1].map(nota)) - Math.min(...b[1].map(nota)));
+  $('folha-lista').innerHTML = grupos.length ? grupos.map(([rot, l]) => `<h4>${rot}</h4>` + l.map(x =>
+      x.tipo === 'cidade' ? item({ t: 'cidade', cd: x.cd, n: x.nome }, marcar(x.nome, t), 'Cidade', null).replace('<small>0 votos</small>', '›')
+    : x.tipo === 'bairro' ? item({ t: 'bairro-de', cd: x.cd, n: x.cidade, b: x.nome }, marcar(x.nome, t), esc(titulo(x.cidade)), null).replace('<small>0 votos</small>', '›')
+    : item({ t: 'escola', cd: x.cd, n: x.cidade, b: x.bairro, id: x.id, e: x.nome }, marcar(x.nome, t),
+        esc([titulo(x.bairro), titulo(x.cidade)].filter(Boolean).join(' · ')), null).replace('<small>0 votos</small>', '›')).join('')).join('')
+    : '<p class="vazio">Nada encontrado. Confira a grafia ou procure pelo nome da cidade.</p>';
 }
-function mostrarSugestoes(lista, termo) {
-  const caixa = $('f-sug'), t = semAcento(termo.trim());
-  sugAtual = lista; foco = -1;
-  if (!termo.trim()) { caixa.hidden = true; $('f-busca').setAttribute('aria-expanded', 'false'); return; }
-  const rot = { cidade: 'Cidades', bairro: 'Bairros', escola: 'Escolas' };
-  const grupos = [...new Set(lista.map(x => x.tipo))].map(tp => [tp, rot[tp]]);   // na ordem de relevância
-  caixa.innerHTML = lista.length ? grupos.map(([tp, rot]) => {
-    const g = lista.map((x, i) => [x, i]).filter(([x]) => x.tipo === tp);
-    return g.length ? `<h4>${rot}</h4>` + g.map(([x, i]) => `<button type="button" role="option" data-i="${i}">
-      <span>${marcar(x.nome, t)}</span>${x.tipo !== 'cidade' ? `<small>${x.tipo === 'escola' && x.bairro ? esc(titulo(x.bairro)) + ' · ' : ''}${esc(titulo(x.cidade))}</small>` : ''}</button>`).join('') : '';
-  }).join('') : `<p class="vazio">Nada encontrado. Tente outro nome — ou escolha a cidade no passo 1.</p>`;
-  caixa.hidden = false; $('f-busca').setAttribute('aria-expanded', 'true');
-}
-function escolher(x) {
-  $('f-sug').hidden = true; $('f-busca').value = ''; $('f-busca').blur();
-  if (x.tipo === 'cidade') aplicar({ municipio: String(x.cd) });
-  else if (x.tipo === 'bairro') aplicar({ municipio: String(x.cd), bairro: x.nome });
-  else aplicar({ municipio: String(x.cd), bairro: x.bairro || '', local: x.id });
-  $('filtro-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-$('f-busca').addEventListener('focus', carregarIndice);
-$('f-busca').addEventListener('input', async e => { await carregarIndice(); mostrarSugestoes(procurar(e.target.value), e.target.value); });
+$('f-busca').addEventListener('input', () => { $('folha-voltar').hidden = !$('f-busca').value && fl.nivel === 'bahia'; renderFolha(); });
 $('f-busca').addEventListener('keydown', e => {
-  const bts = [...$('f-sug').querySelectorAll('button')];
-  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-    e.preventDefault(); if (!bts.length) return;
-    foco = (foco + (e.key === 'ArrowDown' ? 1 : -1) + bts.length) % bts.length;
-    bts.forEach((b, i) => b.classList.toggle('foco', i === foco)); bts[foco].scrollIntoView({ block: 'nearest' });
-  } else if (e.key === 'Enter') {
-    e.preventDefault(); const b = bts[Math.max(0, foco)]; if (b) escolher(sugAtual[+b.dataset.i]);
-  } else if (e.key === 'Escape') $('f-sug').hidden = true;
+  if (e.key === 'Enter') { e.preventDefault(); $('folha-lista').querySelector('.fl-item:not(.todo)')?.click(); }
 });
-$('f-sug').addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if (b) escolher(sugAtual[+b.dataset.i]); });
-document.addEventListener('click', e => { if (!e.target.closest('.fb-busca')) $('f-sug').hidden = true; });
+
+$('folha-lista').addEventListener('click', e => {
+  const b = e.target.closest('.fl-item'); if (!b) return;
+  const a = JSON.parse(b.dataset.acao);
+  if (a.t === 'bahia') return aplicar({}, {});
+  if (a.t === 'cidade') { Object.assign(fl, { nivel: 'cidade', cd: String(a.cd), cidade: a.n, bairro: '', aba: 'bairros' }); $('f-busca').value = ''; return renderFolha(); }
+  if (a.t === 'cidade-toda') return aplicar({ municipio: String(a.cd) }, { municipio: a.n });
+  if (a.t === 'bairro') { Object.assign(fl, { nivel: 'bairro', bairro: a.b }); return renderFolha(); }
+  if (a.t === 'bairro-de') { Object.assign(fl, { nivel: 'bairro', cd: String(a.cd), cidade: a.n, bairro: a.b }); $('f-busca').value = ''; return renderFolha(); }
+  if (a.t === 'bairro-todo') return aplicar({ municipio: String(fl.cd), bairro: a.b }, { municipio: fl.cidade, bairro: a.b });
+  if (a.t === 'escola') return aplicar({ municipio: String(a.cd), bairro: a.b || '', local: a.id }, { municipio: a.n, bairro: a.b || '', local: a.e });
+});
 
 const exportar = () => {
   $('exp-csv').href = 'api/exportar.csv?' + qs();
@@ -309,4 +357,5 @@ function tudo() {
   carregarResumo(); carregarMapa(); carregarRanking(); carregarTabela(); exportar();
   window.tudoComp?.();
 }
-atualizarOpcoes().then(tudo);
+desenharEscopo(); tudo();
+if (location.hash === "#escolher") abrirFolha();   // link direto: painel.html#escolher abre o seletor

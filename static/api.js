@@ -46,7 +46,8 @@
     municipio: r => r.cd_municipio, bairro: r => r.cd_municipio + '|' + r.bairro,
     local: r => r.cd_municipio + '|' + r.nr_zona + '|' + r.nr_local, secao: r => r.cd_municipio + '|' + r.nr_zona + '|' + r.nr_secao,
   };
-  const ids = (n, g) => n === 'local' ? { cd_municipio: g[0].cd_municipio, nr_zona: g[0].nr_zona, nr_local: g[0].nr_local } : {};
+  const ids = (n, g) => n === 'local' ? { cd_municipio: g[0].cd_municipio, nr_zona: g[0].nr_zona, nr_local: g[0].nr_local, bairro: g[0].bairro }
+    : n === 'bairro' ? { bairro: g[0].bairro } : {};
 
   function tabela(rs) {
     return rs.map(r => ({

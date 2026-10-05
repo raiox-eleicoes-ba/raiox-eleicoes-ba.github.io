@@ -2,7 +2,7 @@
 // O nível do relatório acompanha o filtro: Bahia → cidades; cidade → escolas + urnas; bairro/escola → urnas.
 (function () {
   const pctTxt = (a, b) => b ? (100 * a / b).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%' : '–';
-  const sel = id => { const s = $(id); return s.value ? s.options[s.selectedIndex].text : ''; };
+  const sel = id => titulo(nomes[{ 'f-municipio': 'municipio', 'f-bairro': 'bairro', 'f-local': 'local' }[id]] || '');
 
   function cabecalho(meta, titulo) {
     const filtro = [sel('f-municipio'), sel('f-bairro'), sel('f-local')].filter(Boolean).join(' · ') || 'Toda a Bahia';
