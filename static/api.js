@@ -20,6 +20,9 @@
   });
 
   const soma = (a, f) => a.reduce((t, x) => t + (f(x) || 0), 0);
+  // resultado oficial do município (inclui urnas sem boletim publicado): usado quando o filtro é só a cidade
+  const oficial = cd => (D.cidades_oficial || {})[cd];
+  const soCidade = p => p.get('municipio') && !['bairro', 'local', 'zona'].some(k => p.get(k));
   const agrupar = (a, chave) => { const g = new Map(); for (const x of a) { const k = chave(x); (g.get(k) || g.set(k, []).get(k)).push(x); } return [...g.values()]; };
   const r2 = x => x == null ? null : Math.round(x * 100) / 100;
   // modo '26': urnas de 2026 | 'todas': 2022 e 2026 (totais por área) | 'ambas': urna a urna (existe nos dois anos)
@@ -51,18 +54,20 @@
   }
   function tabelaComp(rs) {
     return rs.map(r => ({
-      municipio: r.nm_municipio, zona: r.nr_zona, secao: r.nr_secao, local_2026: r.nm_local, local_2022: r.nm_local_22,
-      bairro: r.bairro, situacao: 'ambas', votos_22: r.v22, validos_22: r.vv22, votos_26: r.votos, validos_26: r.validos,
-      variacao: r.votos - r.v22, pct_2022: r.vv22 ? r2(100 * r.v22 / r.vv22) : null, pct_2026: r.validos ? r2(100 * r.votos / r.validos) : null,
+      municipio: r.nm_municipio, zona: r.nr_zona, secao: r.nr_secao, local_2026: r.so22 ? r.nm_local_22 : r.nm_local, local_2022: r.nm_local_22,
+      bairro: r.bairro, situacao: r.ambas ? 'nos dois anos' : r.so22 ? 'urna extinta (só 2022)' : 'urna nova em 2026',
+      votos_22: r.v22, validos_22: r.vv22, votos_26: r.so22 ? null : r.votos, validos_26: r.so22 ? null : r.validos,
+      variacao: (r.so22 ? 0 : r.votos || 0) - (r.v22 || 0), pct_2022: r.vv22 ? r2(100 * r.v22 / r.vv22) : null, pct_2026: r.validos ? r2(100 * r.votos / r.validos) : null,
     })).sort((a, b) => a.variacao - b.variacao);
   }
 
   const ROTAS = [
     [/^\/api\/resumo$/, p => {
-      const f = filtrar(p);
+      const f = filtrar(p), of = soCidade(p) && oficial(p.get('municipio'));
       return {
         meta: D.meta, posicao: D.posicao, candidatos: D.candidatos, validos_estado: soma(R, r => r.validos),
-        filtro: { secoes: f.length, votos: soma(f, r => r.votos), validos: soma(f, r => r.validos), secoes_com_voto: f.filter(r => r.votos > 0).length },
+        filtro: { secoes: f.length, votos: of ? of[0] : soma(f, r => r.votos), validos: of ? of[1] : soma(f, r => r.validos),
+          secoes_com_voto: f.filter(r => r.votos > 0).length },
       };
     }],
     [/^\/api\/opcoes$/, p => {
@@ -95,14 +100,18 @@
     }],
     [/^\/api\/ranking\/(\w+)$/, (p, m) => {
       const n = m[1], lim = +(p.get('limite') || 20);
-      return agrupar(filtrar(p), CHAVES[n]).map(g => ({ nome: NOMES[n](g), ...ids(n, g), votos: soma(g, r => r.votos), validos: soma(g, r => r.validos), secoes: g.length }))
+      return agrupar(filtrar(p), CHAVES[n]).map(g => {
+        const of = n === 'municipio' && oficial(g[0].cd_municipio);
+        return { nome: NOMES[n](g), ...ids(n, g), votos: of ? of[0] : soma(g, r => r.votos), validos: of ? of[1] : soma(g, r => r.validos), secoes: g.length };
+      })
         .filter(x => x.votos > 0).sort((a, b) => b.votos - a.votos).slice(0, lim);
     }],
     [/^\/api\/secoes$/, p => tabela(filtrar(p))],
     [/^\/api\/comp\/resumo$/, p => {
-      const f = filtrar(p, 'todas'), amb = f.filter(r => r.ambas);
+      const f = filtrar(p, 'todas'), amb = f.filter(r => r.ambas), of = soCidade(p) && oficial(p.get('municipio'));
       return {
-        base: { secoes: f.length, v22: soma(f, r => r.v22), v26: soma(f, r => r.votos), vv22: soma(f, r => r.vv22), vv26: soma(f, r => r.validos),
+        base: { secoes: f.length, v22: soma(f, r => r.v22), v26: of ? of[0] : soma(f, r => r.votos), vv22: soma(f, r => r.vv22),
+          vv26: of ? of[1] : soma(f, r => r.validos),
           ganhou: amb.filter(r => r.votos > r.v22).length, perdeu: amb.filter(r => r.votos < r.v22).length },
         posicao22: D.posicao22, cobertura: { ambas: R.filter(r => r.ambas).length },
       };
@@ -110,7 +119,8 @@
     [/^\/api\/comp\/ranking\/(\w+)$/, (p, m) => {
       const n = m[1], lim = +(p.get('limite') || 30), ordem = p.get('ordem') || 'ganho';
       const L = agrupar(filtrar(p, 'todas'), CHAVES[n]).map(g => {
-        const v22 = soma(g, r => r.v22), v26 = soma(g, r => r.votos), vv22 = soma(g, r => r.vv22), vv26 = soma(g, r => r.validos);
+        const of = n === 'municipio' && oficial(g[0].cd_municipio);
+        const v22 = soma(g, r => r.v22), v26 = of ? of[0] : soma(g, r => r.votos), vv22 = soma(g, r => r.vv22), vv26 = of ? of[1] : soma(g, r => r.validos);
         return { nome: n === 'secao' ? 'Z' + g[0].nr_zona + ' / S' + g[0].nr_secao + ' — ' + (g[0].nm_local ?? '?') + ' — ' + g[0].nm_municipio : NOMES[n](g),
           ...ids(n, g), v22, v26, delta: v26 - v22, vv22, vv26, secoes: g.length,
           dpp: vv22 && vv26 ? r2(100 * v26 / vv26 - 100 * v22 / vv22) : null };
@@ -127,7 +137,7 @@
         nr_secao: r.nr_secao, situacao: r.ambas ? 'ambas' : r.so22 ? 'so_2022' : 'so_2026', votos_22: r.v22, validos_22: r.vv22, votos_26: r.votos, validos_26: r.validos,
         nm_local: r.nm_local, nm_local_22: r.nm_local_22, endereco: r.endereco, bairro: r.bairro, nm_municipio: r.nm_municipio,
       }))],
-    [/^\/api\/comp\/tabela$/, p => tabelaComp(filtrar(p, 'ambas'))],
+    [/^\/api\/comp\/tabela$/, p => tabelaComp(filtrar(p, 'todas'))],
   ];
 
   async function get(url) {
@@ -152,7 +162,7 @@
     await pronto;
     const u = new URL(a.getAttribute('href'), location.href);
     const comp = u.pathname.includes('/comp/'), fmtArq = u.pathname.endsWith('.xlsx') ? 'xlsx' : 'csv';
-    const linhas = comp ? tabelaComp(filtrar(u.searchParams, 'ambas')) : tabela(filtrar(u.searchParams));
+    const linhas = comp ? tabelaComp(filtrar(u.searchParams, 'todas')) : tabela(filtrar(u.searchParams));
     const base = (D.meta.slug || 'candidato').replace(/-/g, '_');
     const nome = comp ? base + '_2022x2026' : base + '_secoes';
     if (fmtArq === 'xlsx' && window.XLSX) {

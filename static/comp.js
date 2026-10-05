@@ -113,7 +113,8 @@ const tabelaComp = tabela({
   campos: l => [l.municipio, l.local_2026, l.local_2022, l.bairro, l.secao],
   linha: l => {
     const ok = l.votos_22 != null && l.votos_26 != null;
-    return `<tr><td>${esc(titulo(l.municipio))}</td><td>${esc(titulo(l.local_2026 || l.local_2022))}</td><td class="n">${l.secao}</td>
+    const obs = l.votos_22 == null ? ' <small>(nova)</small>' : l.votos_26 == null ? ' <small>(extinta)</small>' : '';
+    return `<tr><td>${esc(titulo(l.municipio))}</td><td>${esc(titulo(l.local_2026 || l.local_2022))}</td><td class="n">${l.secao}${obs}</td>
       <td class="n">${l.votos_22 != null ? fmt(l.votos_22) : '–'}</td><td class="n">${l.votos_26 != null ? fmt(l.votos_26) : '–'}</td>
       <td class="n">${ok ? `<span class="${classe(l.variacao)}">${sinal(l.variacao)}</span>` : '–'}</td></tr>`;
   },
