@@ -95,6 +95,9 @@ document.getElementById('troca-cand').addEventListener('change', e => {
     <label>Bairro<select id="f-bairro" disabled><option value="">Todos</option></select></label>
     <label>Escola<select id="f-local" disabled><option value="">Todas</option></select></label>
     <button id="limpar" class="link" hidden>Limpar filtro</button>
+    <button id="btn-imprimir" class="btn-imprimir" type="button" title="Gera um relatório do que está filtrado">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/></svg>
+      Imprimir / Salvar PDF</button>
   </section>
 
   <!-- ============ VOTOS 2026 ============ -->
@@ -196,6 +199,8 @@ document.getElementById('troca-cand').addEventListener('change', e => {
 <script src="../static/api.js"></script>
 <script src="../static/app.js"></script>
 <script src="../static/comp.js"></script>
+<script src="../static/relatorio.js"></script>
+<div id="relatorio" aria-hidden="true"></div>
 <script data-goatcounter="https://raiox.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 </body>
 </html>

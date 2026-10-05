@@ -128,3 +128,32 @@ footer { text-align: center; color: var(--suave); font-size: 13px; padding: 8px 
   td:nth-child(2) { min-width: 130px; }
 }
 .barra-linha .val .sobe { color: var(--ganho-txt); } .barra-linha .val .desce { color: var(--perda-txt); }
+
+/* botão e relatório de impressão / PDF */
+.btn-imprimir { display: inline-flex; align-items: center; gap: 8px; padding: 11px 16px; border-radius: 10px; border: 1.5px solid var(--azul-escuro);
+  background: var(--superficie); color: var(--azul-escuro); font-weight: 700; font-size: 15px; }
+.btn-imprimir svg { width: 20px; height: 20px; }
+.btn-imprimir:hover { background: var(--azul-escuro); color: #fff; }
+.btn-imprimir:disabled { opacity: .6; cursor: wait; }
+#relatorio { display: none; }
+@media (max-width: 700px) { .btn-imprimir { flex: 1 1 100%; justify-content: center; } }
+@media print {
+  @page { size: A4; margin: 14mm 12mm; }
+  body > *:not(#relatorio) { display: none !important; }
+  body { background: #fff !important; padding: 0 !important; }
+  #relatorio { display: block !important; color: #000; font: 11pt/1.35 system-ui, "Segoe UI", sans-serif; }
+  .rel-cab { display: flex; gap: 14px; align-items: center; border-bottom: 2px solid #1c5cab; padding-bottom: 10px; margin-bottom: 12px; }
+  .rel-cab img { width: 62px; height: auto; border-radius: 6px; }
+  .rel-cab h1 { margin: 0; font-size: 20pt; } .rel-cab h1 span { font-size: 13pt; border: 1.5px solid #000; border-radius: 6px; padding: 0 6px; }
+  .rel-cab p { margin: 2px 0 0; color: #333; } .rel-filtro { font-size: 12pt; color: #000 !important; }
+  .rel-num { display: flex; gap: 10px; margin: 10px 0 14px; }
+  .rel-num div { flex: 1; border: 1px solid #bbb; border-radius: 6px; padding: 6px 10px; font-size: 9.5pt; color: #333; }
+  .rel-num b { display: block; font-size: 16pt; color: #000; }
+  #relatorio h2 { font-size: 13pt; margin: 14px 0 6px; }
+  #relatorio table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+  #relatorio th { background: #e8f0fb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; text-align: left; }
+  #relatorio th, #relatorio td { border-bottom: 1px solid #ccc; padding: 3px 5px; }
+  #relatorio .n { text-align: right; white-space: nowrap; }
+  #relatorio thead { display: table-header-group; } #relatorio tr { break-inside: avoid; }
+  .rel-obs { font-size: 9.5pt; color: #444; } .rel-rod { margin-top: 14px; font-size: 8.5pt; color: #555; border-top: 1px solid #ccc; padding-top: 6px; }
+}
