@@ -39,7 +39,7 @@
   const NOMES = {
     municipio: g => g[0].nm_municipio,
     bairro: g => (g[0].bairro ?? '(sem bairro)') + ' — ' + g[0].nm_municipio,
-    local: g => g[0].nm_local + ' — ' + g[0].nm_municipio,
+    local: g => (g.find(r => !r.so22) || g[0]).nm_local + ' — ' + g[0].nm_municipio,   // nome atual (2026)
     secao: g => 'Zona ' + g[0].nr_zona + ' / Seção ' + g[0].nr_secao + ' — ' + (g[0].nm_local ?? '?'),
   };
   const CHAVES = {

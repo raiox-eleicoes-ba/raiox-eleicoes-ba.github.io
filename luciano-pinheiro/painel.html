@@ -67,7 +67,7 @@
     <label style="margin-left:auto;display:flex;align-items:center;gap:8px;min-width:0;flex:0 1 auto">
       <span style="white-space:nowrap">Candidato</span>
       <select id="troca-cand" aria-label="Trocar de candidato" style="font:600 15px inherit;padding:7px 10px;border-radius:10px;
-        border:1px solid #2c4560;background:#12263d;color:#fff;max-width:72vw"><option value="ricardo-maia">Ricardo Maia · Dep. Federal</option><option value="marcinho-oliveira">Marcinho Oliveira · Dep. Estadual</option><option value="rogerio-andrade">Rogério Andrade · Dep. Estadual</option><option value="luciano-pinheiro" selected>Luciano Pinheiro · Dep. Estadual</option><option value="antonio-henrique-jr">Antônio Henrique Jr. · Dep. Estadual</option></select>
+        border:1px solid #2c4560;background:#12263d;color:#fff;max-width:72vw"><option value="ricardo-maia">Ricardo Maia · Dep. Federal</option><option value="marcinho-oliveira">Marcinho Oliveira · Dep. Estadual</option><option value="rogerio-andrade">Rogério Andrade · Dep. Estadual</option><option value="luciano-pinheiro" selected>Luciano Pinheiro · Dep. Estadual</option><option value="antonio-henrique-jr">Antônio Henrique Jr. · Dep. Estadual</option><option value="denise-menezes">Denise Menezes · Dep. Estadual</option><option value="marcelinho-veiga">Marcelinho Veiga · Dep. Estadual</option></select>
     </label>
   </div>
 </div>
@@ -127,7 +127,7 @@ document.getElementById('troca-cand').addEventListener('change', e => {
     </section>
 
     <section class="bloco">
-      <h2>Onde ele foi votado</h2>
+      <h2 id="t-onde">Onde ele foi votado</h2>
       <p class="dica">Cada círculo é um local de votação. Quanto maior e mais escuro, mais votos. Toque para ver os detalhes.</p>
       <div id="mapa" class="mapa"></div>
       <div class="legenda-escala"><span>poucos votos</span><i></i><span>muitos votos</span></div>
@@ -138,7 +138,7 @@ document.getElementById('troca-cand').addEventListener('change', e => {
     </section>
 
     <section class="bloco">
-      <h2>Onde ele teve mais votos</h2>
+      <h2 id="t-mais">Onde ele teve mais votos</h2>
       <div class="abas" id="abas">
         <button data-n="municipio" class="ativa">Cidades</button>
         <button data-n="bairro">Bairros</button>

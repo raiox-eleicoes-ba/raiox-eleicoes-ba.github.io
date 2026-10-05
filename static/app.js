@@ -76,6 +76,7 @@ async function carregarResumo() {
     $('t-sit').className = 't-sit ' + tipo; $('t-sit').textContent = `${ic} ${m.situacao_texto}`; $('t-sit').hidden = false;
   }
   document.title = `${m.candidato} · votos por urna`;
+  if (m.genero === 'F') { $('t-onde').textContent = 'Onde ela foi votada'; $('t-mais').textContent = 'Onde ela teve mais votos'; }
   // sem candidatura em 2022: esconde a aba do comparativo
   const semComp = !m.nr_2022;
   document.querySelector('#visoes [data-v="v-comp"]').hidden = semComp;
