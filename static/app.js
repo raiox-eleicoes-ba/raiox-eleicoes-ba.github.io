@@ -203,13 +203,15 @@ function desenharAtivos() {
     .filter(([k, n]) => filtros[k] && n);
   $('f-ativos').innerHTML = itens.length
     ? itens.map(([k, n]) => `<span class="fb-chip"><span>${esc(n)}</span><button type="button" data-k="${k}" aria-label="Remover ${esc(n)}">×</button></span>`).join('') +
-      `<button type="button" class="fb-limpar" id="limpar">Limpar tudo</button><div class="fb-res" id="f-res"></div>`
-    : `<span>Mostrando <b>toda a Bahia</b>.</span><div class="fb-res" id="f-res"></div>`;
+      `<button type="button" class="fb-limpar" id="limpar">Limpar</button><span class="fb-res" id="f-res"></span>`
+    : '';   // sem filtro: a linha some (caixa mais compacta)
 }
+// passo a passo: aberto no computador (cabe numa linha), recolhido no celular
+if (innerWidth > 700) $('fb-passo').open = true;
 // linha de resultado ("Mostrando 15 urnas · 2.487 votos"), preenchida pelo resumo
 function resultadoFiltro(f) {
   const r = $('f-res'); if (!r) return;
-  r.innerHTML = qs() ? `Resultado: <b>${fmt(f.secoes)}</b> ${f.secoes === 1 ? 'urna' : 'urnas'} · <b>${fmt(f.votos)}</b> ${f.votos === 1 ? 'voto' : 'votos'} (${pct(f.votos, f.validos)} dos válidos)` : '';
+  r.innerHTML = qs() ? `<b>${fmt(f.secoes)}</b> ${f.secoes === 1 ? 'urna' : 'urnas'} · <b>${fmt(f.votos)}</b> ${f.votos === 1 ? 'voto' : 'votos'} (${pct(f.votos, f.validos)} dos válidos)` : '';
 }
 
 async function aplicar(novos) {
