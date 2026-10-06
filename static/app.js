@@ -56,9 +56,12 @@ async function abrirLocal(mun, zona, local) {
     <h3>${esc(titulo(d.info.nm_local))}</h3>
     <p class="end">${esc(titulo(d.info.endereco))}${d.info.bairro ? ' · ' + esc(titulo(d.info.bairro)) : ''} · ${esc(titulo(d.info.nm_municipio))}</p>
     <div class="resumo"><div><b>${fmt(tv)}</b><small>votos</small></div><div><b>${pct(tv, tvv)}</b><small>dos válidos</small></div></div>
-    <table><thead><tr><th>Seção</th><th class="n">Votos</th><th class="n">%</th></tr></thead>
-    <tbody>${d.secoes.map(s => `<tr><td>${s.nr_secao}</td><td class="n"><b>${fmt(s.votos_candidato)}</b></td>
-      <td class="n">${pct(s.votos_candidato, s.validos)}</td></tr>`).join('')}</tbody></table>`;
+    <div class="tabela-rola"><table><thead><tr><th>Seção</th><th class="n">Eleitores</th><th class="n">Votaram</th><th class="n">Não votaram</th>
+      <th class="n">Brancos</th><th class="n">Nulos</th><th class="n">Votos</th><th class="n">%</th></tr></thead>
+    <tbody>${d.secoes.map(s => `<tr><td>${s.nr_secao}</td><td class="n">${fmt(s.aptos)}</td><td class="n">${fmt(s.comparecimento)}</td>
+      <td class="n">${s.aptos != null && s.comparecimento != null ? fmt(s.aptos - s.comparecimento) : '–'}</td>
+      <td class="n">${fmt(s.brancos)}</td><td class="n">${fmt(s.nulos)}</td><td class="n"><b>${fmt(s.votos_candidato)}</b></td>
+      <td class="n">${pct(s.votos_candidato, s.validos)}</td></tr>`).join('')}</tbody></table></div>`;
   $('detalhe-box').hidden = false;
   $('detalhe-box').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
