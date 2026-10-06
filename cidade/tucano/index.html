@@ -179,7 +179,7 @@ function render() {
   let pos = 0;
   const linhas = cargo.cand.map(c => ({ c, pos: c.a ? '—' : ++pos })).filter(({ c }) => !t || semAc(c.nm + ' ' + c.p + ' ' + c.n).includes(t));
   $('info').textContent = `${cargo.nome}: ${cargo.cand.length} candidatos tiveram votos · ${fmt(cargo.validos)} votos válidos` +
-    (cargo.legenda ? ` (incluindo ${fmt(cargo.legenda)} de legenda)` : '') + (t ? ` · ${linhas.length} encontrados` : '');
+    (cargo.legenda ? ` (incluindo ${fmt(cargo.legenda)} de legenda)` : '') + (cargo.nome === 'Senador' ? ' · Em 2026 foram duas vagas: cada eleitor votou em dois senadores, por isso há mais votos que eleitores que votaram' : '') + (t ? ` · ${linhas.length} encontrados` : '');
   $('lista').innerHTML = linhas.map(({ c, pos }) => `<div class="cand" data-n="${c.n}">
       <button class="cab" type="button" aria-expanded="false">
         <span class="pos">${pos}${pos !== '—' ? 'º' : ''}</span>
