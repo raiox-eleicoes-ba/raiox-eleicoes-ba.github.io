@@ -2,7 +2,8 @@
 // O nível do relatório acompanha o filtro: Bahia → cidades; cidade → escolas + urnas; bairro/escola → urnas.
 (function () {
   const pctTxt = (a, b) => b ? (100 * a / b).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%' : '–';
-  const sel = id => titulo(nomes[{ 'f-municipio': 'municipio', 'f-bairro': 'bairro', 'f-local': 'local' }[id]] || '');
+  const bai = b => (filtros.municipio == 39373 && /^centro$/i.test((b || '').trim())) ? 'Sede' : titulo(b || '');
+  const sel = id => id === 'f-bairro' ? bai(nomes.bairro) : titulo(nomes[{ 'f-municipio': 'municipio', 'f-local': 'local' }[id]] || '');
 
   function cabecalho(meta, titulo) {
     const filtro = [sel('f-municipio'), sel('f-bairro'), sel('f-local')].filter(Boolean).join(' · ') || 'Toda a Bahia';
@@ -32,19 +33,19 @@
       if (nivel === 'cidade') {
         // bairros e povoados (no cadastro do TSE, povoados e distritos aparecem como bairro)
         const b = await get('api/ranking/bairro?limite=5000&' + qs());
-        h += `<h2>Bairros e povoados (${b.length} com voto)</h2>` + tabela([
-          ['#', l => b.indexOf(l) + 1, 'n'], ['Bairro / povoado', l => esc(titulo(l.bairro || l.nome.split(' — ')[0]))], ['Votos', l => fmt(l.votos), 'n'],
+        h += `<h2>Sede e povoados (${b.length} com voto)</h2>` + tabela([
+          ['#', l => b.indexOf(l) + 1, 'n'], ['Sede / povoado', l => esc(bai(l.bairro || l.nome.split(' — ')[0]))], ['Votos', l => fmt(l.votos), 'n'],
           ['% válidos', l => pctTxt(l.votos, l.validos), 'n'], ['Urnas', l => l.secoes, 'n']], b);
         const e = await get('api/ranking/local?limite=5000&' + qs());
         h += `<h2>Escolas (${e.length} com voto)</h2>` + tabela([
-          ['#', l => e.indexOf(l) + 1, 'n'], ['Escola', l => esc(titulo(l.nome.split(' — ')[0]))], ['Bairro / povoado', l => esc(titulo(l.bairro))],
+          ['#', l => e.indexOf(l) + 1, 'n'], ['Escola', l => esc(titulo(l.nome.split(' — ')[0]))], ['Sede / povoado', l => esc(bai(l.bairro))],
           ['Votos', l => fmt(l.votos), 'n'], ['% válidos', l => pctTxt(l.votos, l.validos), 'n'], ['Urnas', l => l.secoes, 'n']], e);
       }
       const u = (await get('api/secoes?' + qs())).sort((a, b) => (a.local || '').localeCompare(b.local || '') || a.secao - b.secao);
       // escola filtrada: o nome já está no cabeçalho, as colunas Escola/Bairro seriam repetição
       const cols = [['Seção', l => l.secao, 'n'], ['Válidos', l => fmt(l.validos), 'n'], ['Votos', l => `<b>${fmt(l.votos)}</b>`, 'n'],
         ['%', l => pctTxt(l.votos, l.validos), 'n']];
-      if (!filtros.local) cols.unshift(['Escola', l => esc(titulo(l.local))], ...(filtros.bairro ? [] : [['Bairro', l => esc(titulo(l.bairro))]]));
+      if (!filtros.local) cols.unshift(['Escola', l => esc(titulo(l.local))], ...(filtros.bairro ? [] : [['Sede / povoado', l => esc(bai(l.bairro))]]));
       h += `<h2>Urna por urna (${u.length})</h2>` + tabela(cols, u);
     }
     return h;
@@ -68,8 +69,8 @@
       if (!filtros.bairro && !filtros.local) {   // cidade: comparação por bairro/povoado
         const b = (await get('api/comp/ranking/bairro?ordem=ganho&limite=5000&' + qs())).filter(x => x.v22 || x.v26)
           .sort((x, y) => (y.v26 - x.v26) || (y.v22 - x.v22));
-        h += `<h2>Bairros e povoados (${b.length})</h2>` + tabela([
-          ['Bairro / povoado', l => esc(titulo(l.bairro || l.nome.split(' — ')[0]))], ['2022', l => fmt(l.v22), 'n'], ['2026', l => fmt(l.v26), 'n'],
+        h += `<h2>Sede e povoados (${b.length})</h2>` + tabela([
+          ['Sede / povoado', l => esc(bai(l.bairro || l.nome.split(' — ')[0]))], ['2022', l => fmt(l.v22), 'n'], ['2026', l => fmt(l.v26), 'n'],
           ['Diferença', l => dif(l.delta), 'n']], b);
       }
       const u = (await get('api/comp/tabela?' + qs())).sort((a, b) => (a.local_2026 || '').localeCompare(b.local_2026 || '') || a.secao - b.secao);
