@@ -62,12 +62,36 @@ h1 { font-family: var(--f-display); font-weight: 800; font-size: clamp(26px, 4.5
 .loc .b { font-size: 12.5px; color: var(--tinta2); grid-column: 1; }
 .loc .q { grid-row: 1 / span 2; grid-column: 2; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14.5px; }
 .loc.lugar .e { font-weight: 700; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.kpi { background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .16); border-radius: 14px; padding: 10px 12px; }
+.kpi b { display: block; font-family: var(--f-display); font-size: 24px; line-height: 1.1; }
+.kpi span { font-size: 12.5px; color: var(--heroi-sub); }
+.kpi.falta b { color: #ffc9a8; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.tag { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: var(--papel); border: 1px solid var(--linha); color: var(--tinta2); white-space: nowrap; }
+.tag.ok { background: #e7f6ea; border-color: #bfe3c6; color: #1d6b2c; }
+.tag.falta { background: #fdf0e8; border-color: #f4d3bd; color: #9a4a17; }
+.loc { padding: 10px 0; }
+.loc .q { text-align: right; line-height: 1.1; }
+.loc .q small { display: block; font-size: 11px; font-weight: 500; color: var(--suave); }
+.loc.lugar { background: #fbfcfe; border-radius: 10px; padding: 10px 10px; margin-top: 4px; border-bottom: 0; }
+.loc.lugar.aberto { background: var(--azul-fundo); }
+.escolas .loc { border-bottom: 1px solid var(--linha); }
+.urnas table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; background: #fff;
+  border: 1px solid var(--linha); border-radius: 10px; overflow: hidden; }
+.urnas th { background: var(--papel); color: var(--tinta2); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; }
+.urnas th, .urnas td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--linha); }
+.urnas th:first-child, .urnas td:first-child { text-align: left; }
+.urnas td.falta { color: #9a4a17; }
+.urnas tr:last-child td { border-bottom: 0; }
+@media (max-width: 600px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpi b { font-size: 20px; }
+  .urnas th, .urnas td { padding: 5px 5px; font-size: 12px; } .urnas th { font-size: 10px; } }
 .loc .e::after { content: " ›"; color: var(--suave); }
 .loc.aberto .e::after { content: " ⌄"; }
 .escolas { padding-left: 16px; border-left: 2px solid var(--azul-fundo); margin: 2px 0 6px 4px; }
 .urnas { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0 8px; }
-.urnas { flex-direction: column; gap: 4px; }
-.urnas span { font-size: 12.5px; background: var(--papel); border: 1px solid var(--linha); border-radius: 8px; padding: 2px 8px; font-variant-numeric: tabular-nums; }
+.urnas { display: block; padding: 4px 0 10px; }
+.urnas-velho span { font-size: 12.5px; background: var(--papel); border: 1px solid var(--linha); border-radius: 8px; padding: 2px 8px; font-variant-numeric: tabular-nums; }
 .urnas b { font-weight: 700; }
 .vazio { padding: 16px; color: var(--tinta2); }
 footer { color: var(--suave); font-size: 13px; padding-block: 0 32px; }
@@ -79,6 +103,7 @@ footer { color: var(--suave); font-size: 13px; padding-block: 0 32px; }
   <div class="eyebrow">Eleição 2026 · Bahia · 1º turno</div>
   <h1>Outros candidatos que tiveram votos em Tucano</h1>
   <p id="sub"></p>
+  <div class="kpis" id="kpis"></div>
 </div></header>
 
 <main class="wrap">
@@ -104,7 +129,14 @@ const tt = s => String(s ?? '').toLowerCase().replace(/(^|[\s\-/('])(\p{L})/gu, 
   .replace(/\b(De|Da|Do|Das|Dos|E)(?=\s)|\bD(?=')/g, w => w.toLowerCase()).replace(/\b(Ii|Iii|Iv)\b/g, w => w.toUpperCase());
 const semAc = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-$('sub').textContent = `Presidente, Senador, Deputado Federal e Deputado Estadual · ${fmt(D.aptos)} eleitores · ${fmt(D.votantes)} votaram · ${D.urnas} urnas · ${D.escolas.length} locais de votação. Toque num candidato para ver onde foi votado.`;
+$('sub').textContent = `Presidente, Senador, Deputado Federal e Deputado Estadual · ${D.urnas} urnas em ${D.escolas.length} locais de votação. Toque num candidato para ver onde foi votado.`;
+const abst = D.aptos - D.votantes;
+$('kpis').innerHTML = [[fmt(D.aptos), 'eleitores'], [fmt(D.votantes), `votaram · ${pc(D.votantes, D.aptos)}`],
+  [fmt(abst), `não votaram · ${pc(abst, D.aptos)}`, 'falta'], [D.urnas, 'urnas']]
+  .map(([n, t, c = '']) => `<div class="kpi ${c}"><b>${n}</b><span>${t}</span></div>`).join('');
+// etiquetas de comparecimento: eleitores · votaram · não votaram
+const comp = (aptos, votaram) => `<span class="tags"><span class="tag">${fmt(aptos)} eleitores</span>` +
+  `<span class="tag ok">${fmt(votaram)} votaram</span><span class="tag falta">${fmt(aptos - votaram)} não votaram · ${pc(aptos - votaram, aptos)}</span></span>`;
 $('rodape').textContent = 'Fonte: Tribunal Superior Eleitoral (TSE) — votação por seção de 2026 (dados abertos), boletins de urna (presidente), totalização oficial e cadastro de locais de votação. Percentuais sobre os votos válidos do cargo na cidade.';
 
 let cargo = D.cargos.find(c => c.cd === 6) || D.cargos[0];
@@ -112,6 +144,7 @@ $('abas').innerHTML = D.cargos.map(c => `<button role="tab" data-c="${c.cd}">${c
 $('abas').onclick = e => { const b = e.target.closest('button'); if (!b) return; cargo = D.cargos.find(c => c.cd == b.dataset.c); $('busca').value = ''; render(); };
 
 // candidato → localidade (bairro/povoado) → escola → urnas
+const nomeCurto = c => tt(c.nm).split(' ').slice(0, 2).join(' ');
 function locais(c) {
   const esc_ = new Map();
   for (const [ei, sec, q] of c.u) { const o = esc_.get(ei) || { ei, v: 0, u: [] }; o.v += q; o.u.push([sec, q]); esc_.set(ei, o); }
@@ -121,20 +154,23 @@ function locais(c) {
     const L = loc.get(nome) || { nome, v: 0, esc: [] }; L.v += o.v; L.esc.push(o); loc.set(nome, L);
   }
   for (const L of loc.values()) {   // eleitores da localidade = soma de todas as escolas dela (não só onde teve voto)
-    L.aptos = 0;
-    for (let i = 0; i < D.escolas.length; i++) if ((D.escolas[i][1] || 'Localidade não identificada') === L.nome) L.aptos += D.escolas[i][2] || 0;
+    L.aptos = 0; L.votaram = 0;
+    for (const e of D.escolas) if ((e[1] || 'Localidade não identificada') === L.nome) { L.aptos += e[2] || 0; L.votaram += e[3] || 0; }
   }
   const ls = [...loc.values()].sort((a, b) => b.v - a.v);
   return `<h4>Onde foi votado em ${esc(tt(D.cidade))} · ${ls.length} ${ls.length === 1 ? 'localidade' : 'localidades'} · ${esc_.size} ${esc_.size === 1 ? 'local de votação' : 'locais de votação'}</h4>` +
     ls.map(L => `<button class="loc lugar" type="button"><span class="e">${esc(tt(L.nome))}</span>
-        <span class="b">${L.esc.length} ${L.esc.length === 1 ? 'local de votação' : 'locais de votação'} · ${fmt(L.aptos)} eleitores</span><span class="q">${fmt(L.v)}</span></button>
+        <span class="b">${L.esc.length} ${L.esc.length === 1 ? 'local de votação' : 'locais de votação'}${comp(L.aptos, L.votaram)}</span>
+        <span class="q">${fmt(L.v)}<small>${L.v === 1 ? 'voto' : 'votos'}</small></span></button>
       <div class="escolas" hidden>${L.esc.sort((a, b) => b.v - a.v).map(o => `<button class="loc escola" type="button">
           <span class="e">${esc(tt((D.escolas[o.ei] || ['Local não identificado'])[0]))}</span>
-          <span class="b">${o.u.length} ${o.u.length === 1 ? 'urna' : 'urnas'} com voto · ${fmt((D.escolas[o.ei] || [])[2])} eleitores na escola</span><span class="q">${fmt(o.v)}</span></button>
-        <div class="urnas" hidden>${o.u.sort((a, b) => a[0] - b[0]).map(([sec, q]) => {
-          const el = D.eleitores[`${o.ei}-${sec}`] || [];
-          return `<span>Seção ${sec} · ${fmt(el[0])} eleitores${el[1] != null ? ` (${fmt(el[1])} votaram)` : ''}: <b>${fmt(q)} ${q === 1 ? 'voto' : 'votos'}</b></span>`;
-        }).join('')}</div>`).join('')}</div>`).join('');
+          <span class="b">${(D.escolas[o.ei] || [])[4] || o.u.length} urnas na escola${comp((D.escolas[o.ei] || [])[2] || 0, (D.escolas[o.ei] || [])[3] || 0)}</span>
+          <span class="q">${fmt(o.v)}<small>${o.v === 1 ? 'voto' : 'votos'}</small></span></button>
+        <div class="urnas" hidden><table><thead><tr><th>Seção</th><th>Eleitores</th><th>Votaram</th><th>Não votaram</th><th>Votos ${esc(nomeCurto(c))}</th></tr></thead><tbody>
+          ${o.u.sort((a, b) => a[0] - b[0]).map(([sec, q]) => {
+            const [ap, vt] = D.eleitores[`${o.ei}-${sec}`] || [];
+            return `<tr><td>${sec}</td><td>${fmt(ap)}</td><td>${fmt(vt)}</td><td class="falta">${ap != null ? fmt(ap - vt) : '–'}</td><td><b>${fmt(q)}</b></td></tr>`;
+          }).join('')}</tbody></table></div>`).join('')}</div>`).join('');
 }
 
 function render() {
